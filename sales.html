@@ -17,10 +17,11 @@
         <nav class="sidenav"></nav>
 
         <main class="main">
-            <!-- Add sale -->
-            <section class="card">
+            <!-- Add / edit sale -->
+            <section class="card sale-card">
                 <div class="card-head">
-                    <h2>New sale</h2>
+                    <h2 id="sale-form-title">New sale</h2>
+                    <button type="button" class="btn btn-ghost btn-sm cancel-edit-btn" hidden>Cancel edit</button>
                 </div>
 
                 <form id="add-sale-form" class="form-grid">
@@ -30,8 +31,25 @@
                     </div>
 
                     <div class="form-field">
-                        <label for="memo-no">Memo No</label>
-                        <input type="text" id="memo-no" name="memoNo" placeholder="Blank = next number">
+                        <label for="invoice-no">Invoice No</label>
+                        <input type="text" id="invoice-no" name="invoiceNo" placeholder="Blank = next number">
+                    </div>
+
+                    <div class="form-field">
+                        <label for="order-no">Order No</label>
+                        <input type="text" id="order-no" name="orderNo" placeholder="Optional (page / courier ID)">
+                    </div>
+
+                    <div class="form-field">
+                        <label for="sale-status">Status</label>
+                        <select id="sale-status" name="status" required></select>
+                    </div>
+
+                    <!-- Customer -->
+                    <div class="form-field">
+                        <label for="customer-phone">Phone Number</label>
+                        <input type="tel" id="customer-phone" name="customerPhone" placeholder="01XXXXXXXXX"
+                            inputmode="numeric" autocomplete="off" required>
                     </div>
 
                     <div class="form-field">
@@ -40,17 +58,18 @@
                             autocomplete="off" required>
                     </div>
 
-                    <div class="form-field">
-                        <label for="customer-phone">Phone Number</label>
-                        <input type="tel" id="customer-phone" name="customerPhone" placeholder="01XXXXXXXXX"
-                            inputmode="numeric" pattern="01[0-9]{9}" title="11-digit number starting with 01"
+                    <div class="form-field span-2">
+                        <label for="customer-email">Email</label>
+                        <input type="email" id="customer-email" name="customerEmail" placeholder="Optional"
                             autocomplete="off">
                     </div>
 
+                    <div class="form-field full customer-found" hidden></div>
+
                     <div class="form-field full">
                         <label for="customer-address">Address</label>
-                        <textarea id="customer-address" name="customerAddress" rows="2" placeholder="Optional"
-                            autocomplete="off"></textarea>
+                        <textarea id="customer-address" name="customerAddress" rows="2" placeholder="Full address"
+                            autocomplete="off" required></textarea>
                     </div>
 
                     <!-- Items sold -->
@@ -73,9 +92,26 @@
                             </div>
                             <div class="items-foot">
                                 <button type="button" class="btn btn-ghost btn-sm add-item-btn">+ Add another item</button>
-                                <span class="muted items-subtotal"></span>
                             </div>
                         </div>
+                    </div>
+
+                    <!-- Delivery -->
+                    <div class="form-field">
+                        <label for="delivery-zone">Delivery Area</label>
+                        <select id="delivery-zone" name="deliveryZone" required></select>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="delivery-charge">Delivery Charge (Tk)</label>
+                        <input type="number" id="delivery-charge" name="deliveryCharge" min="0" step="1" value="0">
+                        <span class="hint delivery-hint">Customer pays</span>
+                    </div>
+
+                    <div class="form-field">
+                        <label for="courier-fee">Courier Fee (Tk)</label>
+                        <input type="number" id="courier-fee" name="courierFee" min="0" step="1" value="0">
+                        <span class="hint courier-hint">Courier keeps</span>
                     </div>
 
                     <div class="form-field">
@@ -83,14 +119,40 @@
                         <input type="number" id="discount" name="discount" min="0" step="0.01" value="0">
                     </div>
 
+                    <!-- Payment -->
                     <div class="form-field">
                         <label for="payment">Payment</label>
                         <select id="payment" name="payment" required></select>
                     </div>
 
+                    <div class="form-field">
+                        <label for="advance-paid">Advance Paid (Tk)</label>
+                        <input type="number" id="advance-paid" name="advancePaid" min="0" step="1" value="0">
+                        <span class="hint">Paid before delivery (e.g. bKash)</span>
+                    </div>
+
+                    <!-- Totals -->
+                    <div class="form-field full">
+                        <div class="bill-wrap">
+                            <dl class="bill">
+                                <div><dt>Items subtotal</dt><dd id="bill-subtotal">Tk 0</dd></div>
+                                <div><dt>Discount</dt><dd id="bill-discount">Tk 0</dd></div>
+                                <div><dt>Delivery</dt><dd id="bill-delivery">Tk 0</dd></div>
+                                <div class="bill-total"><dt>Customer pays</dt><dd id="sale-total">Tk 0</dd></div>
+                            </dl>
+                            <dl class="bill bill-courier">
+                                <div><dt>Advance paid</dt><dd id="bill-advance">Tk 0</dd></div>
+                                <div><dt>Courier collects (COD)</dt><dd id="bill-cod">Tk 0</dd></div>
+                                <div><dt>Courier fee</dt><dd id="bill-fee">Tk 0</dd></div>
+                                <div class="bill-total"><dt>Courier pays you</dt><dd id="bill-payout">Tk 0</dd></div>
+                                <div class="bill-profit"><dt>Your profit on this order</dt><dd id="bill-profit">Tk 0</dd></div>
+                            </dl>
+                        </div>
+                    </div>
+
                     <div class="form-actions">
                         <button type="submit" class="btn btn-primary add-sale-btn">Save sale</button>
-                        <p class="sale-total">Total: <strong id="sale-total">Tk 0</strong></p>
+                        <button type="button" class="btn btn-danger delete-sale-btn" hidden>Delete order</button>
                         <p id="form-message" class="form-message" role="status"></p>
                     </div>
                 </form>
@@ -99,31 +161,35 @@
             <!-- Sales list -->
             <section class="card">
                 <div class="card-head">
-                    <h2>Sales</h2>
+                    <h2>Orders</h2>
                     <div class="card-head-tools">
+                        <select id="status-filter" aria-label="Filter by status"></select>
                         <div id="sales-range"></div>
-                        <input type="search" id="sales-search" placeholder="Search customer, phone, memo">
+                        <input type="search" id="sales-search" placeholder="Search customer, phone, invoice">
                     </div>
                 </div>
 
                 <div class="summary-row" id="sales-summary"></div>
+                <div class="notice" id="sales-notice" hidden></div>
 
                 <div class="table-wrap">
                     <table class="data-table">
                         <thead>
                             <tr>
                                 <th>Date</th>
-                                <th>Memo</th>
+                                <th>Invoice</th>
                                 <th>Customer</th>
                                 <th>Items</th>
-                                <th>Payment</th>
-                                <th class="num">Net Sale</th>
+                                <th>Status</th>
+                                <th class="num">Customer Pays</th>
                                 <th class="num">Profit</th>
                                 <th class="actions"></th>
                             </tr>
                         </thead>
                         <tbody id="sales-table-body">
-                            <tr><td class="empty" colspan="8">Loading...</td></tr>
+                            <tr>
+                                <td class="empty" colspan="8">Loading...</td>
+                            </tr>
                         </tbody>
                     </table>
                 </div>

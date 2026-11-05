@@ -3,8 +3,8 @@
 // ==============================
 
 // ---------- Imports ----------
-import settings from "../settings.json" with { type: "json" };
 import { hf } from "./utils.js";
+import { loadSettings, DEFAULT_SETTINGS } from "./app-settings.js";
 import { startPage, createRangeFilter } from "./layout.js";
 import { addExpense, getExpenses, deleteExpense } from "./firebase.js";
 
@@ -21,6 +21,7 @@ const tableBody = hf.q('#expense-table-body');
 
 const COLUMNS = 6;
 let range;
+let settings = DEFAULT_SETTINGS;   // replaced with saved settings when the page loads
 
 
 // ---------- Functions ----------
@@ -125,4 +126,11 @@ hf.on(expenseForm, 'submit', async (event) => {
 // ---------- Start ----------
 resetForm();
 range = createRangeFilter(hf.q('#expense-range'), loadExpenses);
-startPage({ title: 'Expenses', onReady: loadExpenses });
+startPage({
+    title: 'Expenses',
+    onReady: async () => {
+        settings = await loadSettings();
+        resetForm();
+        loadExpenses();
+    },
+});

@@ -142,6 +142,18 @@ export const hf = {
         return { from: `${y}-01-01`, to: `${y}-12-31` };
     },
 
+    // ---------- Phone numbers ----------
+    // Clean a Bangladeshi mobile number: "+880 1711-123456" → "01711123456"
+    phone: (value = '') => {
+        let digits = String(value).replace(/\D/g, '');
+        if (digits.startsWith('880')) digits = digits.slice(2);       // 8801711... → 01711...
+        else if (digits.startsWith('1') && digits.length === 10) digits = '0' + digits;
+        return digits;
+    },
+
+    // true for 11-digit numbers starting with 013–019
+    isPhone: (value) => /^01[3-9]\d{8}$/.test(value),
+
     // ---------- Misc ----------
     debounce: (fn, ms = 300) => {
         let timer;

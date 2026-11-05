@@ -13,14 +13,23 @@
     "products": {
         "codePrefix": "TS-",
         "defaultUnit": "pcs",
-        "defaultLowStockAlert": 5,
+        "defaultLowStockAlert": 2,
         "categories": ["Clothing", "Accessories", "Home", "Other"],
         "units": ["pcs", "set", "pair", "box", "kg", "dozen"]
     },
 
     "sales": {
-        "memoStartNumber": 1001,
-        "paymentMethods": ["Cash", "bKash", "Nagad", "Rocket", "Bank", "Card", "Due"]
+        "invoicePrefix": "",
+        "defaultPayment": "Cash",
+        "paymentMethods": ["Cash", "bKash", "Nagad", "Rocket", "Bank", "Card", "Due"],
+        "deliveryZones": [
+            { "name": "Inside Mirpur", "charge": 50, "courierFee": 50, "orderPrefix": "ID" },
+            { "name": "Inside Dhaka", "charge": 70, "courierFee": 60, "orderPrefix": "ID" },
+            { "name": "Outside Dhaka", "charge": 130, "courierFee": 110, "orderPrefix": "OD" }
+        ],
+        "defaultZone": "Inside Dhaka",
+        "freeDeliveryOver": 0,
+        "codChargePercent": 0
     },
 
     "expenses": {

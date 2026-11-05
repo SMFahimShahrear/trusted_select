@@ -14,6 +14,9 @@ const ICONS = {
     purchases: '<path d="M12 3v11"/><path d="m7 9 5 5 5-5"/><path d="M4 16v3a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-3"/>',
     sales: '<path d="M6 3h12v18l-3-2-3 2-3-2-3 2V3Z"/><path d="M9 8h6M9 12h6M9 16h3"/>',
     expenses: '<rect x="3" y="6" width="18" height="14" rx="2"/><path d="M3 10h18"/><path d="M7 15h3"/>',
+    print: '<path d="M7 8V3h10v5"/><rect x="3" y="8" width="18" height="9" rx="2"/><path d="M7 14h10v7H7z"/>',
+    customers: '<circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 4.6a3.5 3.5 0 0 1 0 6.8"/><path d="M18.5 14.3A6.5 6.5 0 0 1 21.5 20"/>',
+    settings: '<path d="M4 6h9M17 6h3M4 12h3M11 12h9M4 18h11M19 18h1"/><circle cx="15" cy="6" r="2"/><circle cx="9" cy="12" r="2"/><circle cx="17" cy="18" r="2"/>',
     logout: '<path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3"/><path d="m10 8-4 4 4 4"/><path d="M6 12h10"/>',
     menu: '<path d="M4 6h16M4 12h16M4 18h16"/>',
 };
@@ -24,6 +27,9 @@ const PAGES = [
     { href: 'purchases.html', label: 'Purchases', icon: 'purchases' },
     { href: 'sales.html', label: 'Sales', icon: 'sales' },
     { href: 'expenses.html', label: 'Expenses', icon: 'expenses' },
+    { href: 'customers.html', label: 'Customers', icon: 'customers' },
+    { href: 'print.html', label: 'Print', icon: 'print' },
+    { href: 'settings.html', label: 'Settings', icon: 'settings', separate: true },
 ];
 
 function icon(name) {
@@ -55,7 +61,7 @@ function buildSidebar(nav) {
             link.setAttribute('aria-current', 'page');
         }
         link.append(icon(page.icon), hf.create('span', { text: page.label }));
-        const li = hf.create('li');
+        const li = hf.create('li', { className: page.separate ? 'nav-sep' : '' });
         li.append(link);
         list.append(li);
     }

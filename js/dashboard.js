@@ -7,12 +7,14 @@
 import { hf } from "./utils.js";
 import { startPage, createRangeFilter } from "./layout.js";
 import { getSales, getExpenses, getProducts, stockStatus } from "./firebase.js";
+import { isActive, statusOf, profitOf, deliveryNetOf, courierOwesOf, toShip } from "./orders.js";
 
 
 // ---------- Elements ----------
 const periodLabel = hf.q('#period-label');
 const plStats = hf.q('#pl-stats');
 const stockStats = hf.q('#stock-stats');
+const orderStats = hf.q('#order-stats');
 const topProductsList = hf.q('#top-products');
 const expenseCategoryList = hf.q('#expense-categories');
 const monthlyBody = hf.q('#monthly-body');
@@ -39,20 +41,40 @@ function stat({ label, value, note = '', tone = '', highlight = false }) {
 
 const toneOf = (n) => (n < 0 ? 'negative' : n > 0 ? 'positive' : '');
 
+// sales = active orders only (returned / cancelled are left out before this is called)
 function renderProfitAndLoss(sales, expenses) {
     const totalSales = sum(sales, (s) => s.netSale);
     const costOfGoods = sum(sales, (s) => s.totalCost);
     const grossProfit = totalSales - costOfGoods;
+    const deliveryNet = sum(sales, deliveryNetOf);
     const totalExpenses = sum(expenses, (e) => e.amount);
-    const netProfit = grossProfit - totalExpenses;
+    const netProfit = grossProfit + deliveryNet - totalExpenses;
     const margin = totalSales ? grossProfit / totalSales : 0;
+    const charged = sum(sales, (s) => s.deliveryCharge);
+    const fees = sum(sales, (s) => s.courierFee);
 
     plStats.replaceChildren(
         stat({ label: 'Total sales', value: hf.money(totalSales), note: `${sales.length} orders` }),
         stat({ label: 'Cost of goods sold', value: hf.money(costOfGoods) }),
         stat({ label: 'Gross profit', value: hf.money(grossProfit), note: `${hf.percent(margin)} margin`, tone: toneOf(grossProfit) }),
+        stat({ label: 'Delivery (after courier)', value: hf.money(deliveryNet), note: `${hf.money(charged)} charged − ${hf.money(fees)} fees`, tone: toneOf(deliveryNet) }),
         stat({ label: 'Expenses', value: hf.money(totalExpenses), note: `${expenses.length} entries` }),
         stat({ label: 'Net profit', value: hf.money(netProfit), tone: toneOf(netProfit), highlight: true }),
+    );
+}
+
+// Order pipeline for the period (all orders, including returned / cancelled)
+function renderOrders(allSales) {
+    const active = allSales.filter(isActive);
+    const count = (key) => allSales.filter((s) => statusOf(s) === key).length;
+    const owes = sum(active, courierOwesOf);
+    const withCourier = active.filter((s) => courierOwesOf(s) > 0).length;
+    orderStats.replaceChildren(
+        stat({ label: 'To ship', value: String(active.filter(toShip).length), note: `${count('pending')} pending · ${count('packed')} packaged` }),
+        stat({ label: 'With courier', value: String(count('handed')), note: 'handed over, not collected yet' }),
+        stat({ label: 'Courier owes you', value: hf.money(owes), note: `${withCourier} orders not paid out yet`, tone: owes ? 'positive' : '' }),
+        stat({ label: 'Courier paid', value: String(count('paid')) }),
+        stat({ label: 'Returned / cancelled', value: String(count('returned') + count('cancelled')), tone: count('returned') + count('cancelled') ? 'negative' : '' }),
     );
 }
 
@@ -158,7 +180,7 @@ function renderMonthly(sales, expenses) {
         const m = bucket(s.date);
         m.orders += 1;
         m.sales += s.netSale || 0;
-        m.gross += s.profit || 0;
+        m.gross += profitOf(s);
     }
     for (const e of expenses) bucket(e.date).expenses += e.amount || 0;
 
@@ -197,12 +219,14 @@ async function loadDashboard() {
     periodLabel.textContent = `Profit & loss · ${range.label}`;
     hf.tableMessage(monthlyBody, 'Loading...', 6);
     try {
-        const [sales, expenses, products] = await Promise.all([
+        const [allSales, expenses, products] = await Promise.all([
             getSales(range.from, range.to),
             getExpenses(range.from, range.to),
             getProducts(),
         ]);
+        const sales = allSales.filter(isActive);   // returned / cancelled don't count
         renderProfitAndLoss(sales, expenses);
+        renderOrders(allSales);
         renderStock(products);
         renderTopProducts(sales);
         renderExpenseCategories(expenses);

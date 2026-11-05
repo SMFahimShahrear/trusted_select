@@ -3,8 +3,8 @@
 // ==============================
 
 // ---------- Imports ----------
-import settings from "../settings.json" with { type: "json" };
 import { hf } from "./utils.js";
+import { loadSettings, DEFAULT_SETTINGS } from "./app-settings.js";
 import { startPage } from "./layout.js";
 import {
     addProduct, getProducts, updateProduct, deleteProduct, stockStatus, nextTrackNumber,
@@ -31,6 +31,7 @@ const tableBody = hf.q('#product-table-body');
 const COLUMNS = 10;
 let products = [];        // all products from Firestore
 let editingId = null;     // id of the product being edited, or null when adding
+let settings = DEFAULT_SETTINGS;   // replaced with saved settings when the page loads
 
 
 // ---------- Functions ----------
@@ -78,7 +79,7 @@ function resetForm() {
     productForm.reset();
     fillDropdowns();
     unitSelect.value = settings.products?.defaultUnit || 'pcs';
-    lowStockInput.value = settings.products?.defaultLowStockAlert ?? 5;
+    lowStockInput.value = settings.products?.defaultLowStockAlert ?? 2;
     openingStockInput.disabled = false;
     hf.hide(openingStockHint);
     hf.hide(cancelEditBtn);
@@ -261,4 +262,11 @@ hf.on(statusFilter, 'change', renderTable);
 
 // ---------- Start ----------
 resetForm();
-startPage({ title: 'Products', onReady: loadProducts });
+startPage({
+    title: 'Products',
+    onReady: async () => {
+        settings = await loadSettings();
+        resetForm();
+        loadProducts();
+    },
+});

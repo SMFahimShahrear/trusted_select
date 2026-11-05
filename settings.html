@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Settings | Trusted Select</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body class="settings-body">
+    <div class="layout">
+        <header class="header"></header>
+        <nav class="sidenav"></nav>
+
+        <main class="main">
+            <form id="settings-form" class="settings-form">
+
+                <!-- Delivery -->
+                <section class="card">
+                    <div class="card-head">
+                        <div>
+                            <h2>Delivery charges</h2>
+                            <p class="hint"><strong>Customer pays</strong> is added to the bill. <strong>Courier fee</strong> is what the courier keeps. The difference counts toward your profit.</p>
+                        </div>
+                    </div>
+
+                    <div class="zone-editor">
+                        <div class="zone-head">
+                            <span class="field-label">Area</span>
+                            <span class="field-label">Customer pays (Tk)</span>
+                            <span class="field-label">Courier fee (Tk)</span>
+                            <span class="field-label">Order prefix</span>
+                            <span></span>
+                        </div>
+                        <div id="zone-list"></div>
+                        <button type="button" class="btn btn-ghost btn-sm add-zone-btn">+ Add zone</button>
+                    </div>
+
+                    <div class="form-grid" style="margin-top: 18px;">
+                        <div class="form-field">
+                            <label for="default-zone">Default zone</label>
+                            <select id="default-zone" name="defaultZone"></select>
+                        </div>
+                        <div class="form-field">
+                            <label for="free-delivery-over">Free delivery when sale is at least (Tk)</label>
+                            <input type="number" id="free-delivery-over" name="freeDeliveryOver" min="0" step="1">
+                            <span class="hint">0 = never free</span>
+                        </div>
+                        <div class="form-field">
+                            <label for="cod-charge">Courier COD charge (%)</label>
+                            <input type="number" id="cod-charge" name="codChargePercent" min="0" max="10" step="0.1">
+                            <span class="hint">% of the cash the courier collects (e.g. 1). 0 = none</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Sales -->
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Sales &amp; invoices</h2>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="invoice-prefix">Invoice prefix</label>
+                            <input type="text" id="invoice-prefix" name="invoicePrefix" maxlength="8" placeholder="Optional, e.g. INV-">
+                            <span class="hint">Invoice = prefix + year + number: <strong class="invoice-example">2600001</strong>. Restarts each year.</span>
+                        </div>
+                        <div class="form-field">
+                            <span class="field-label">Order numbers</span>
+                            <p class="hint" style="margin-top:4px">Area prefix + date + number, e.g. <strong>OD26101800001</strong>. Restarts each day. Set the prefix per area above.</p>
+                        </div>
+                        <div class="form-field">
+                            <label for="default-payment">Default payment</label>
+                            <select id="default-payment" name="defaultPayment"></select>
+                        </div>
+                        <div class="form-field span-2">
+                            <label for="payment-methods">Payment methods</label>
+                            <textarea id="payment-methods" name="paymentMethods" rows="5" class="list-input"></textarea>
+                            <span class="hint">One per line</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Products -->
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Products</h2>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="default-low-stock">Default low-stock alert</label>
+                            <input type="number" id="default-low-stock" name="defaultLowStockAlert" min="0" step="1" required>
+                            <span class="hint">Pre-filled when adding a new product</span>
+                        </div>
+                        <div class="form-field">
+                            <label for="code-prefix">Item code prefix</label>
+                            <input type="text" id="code-prefix" name="codePrefix" maxlength="8" required>
+                            <span class="hint">TS- → TS-260001</span>
+                        </div>
+                        <div class="form-field">
+                            <label for="default-unit">Default unit</label>
+                            <select id="default-unit" name="defaultUnit"></select>
+                        </div>
+                        <div class="form-field">
+                            <label for="product-categories">Categories</label>
+                            <textarea id="product-categories" name="categories" rows="5" class="list-input"></textarea>
+                            <span class="hint">One per line</span>
+                        </div>
+                        <div class="form-field">
+                            <label for="product-units">Units</label>
+                            <textarea id="product-units" name="units" rows="5" class="list-input"></textarea>
+                            <span class="hint">One per line</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Expenses -->
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Expenses</h2>
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-field">
+                            <label for="expense-categories">Expense categories</label>
+                            <textarea id="expense-categories" name="expenseCategories" rows="6" class="list-input"></textarea>
+                            <span class="hint">One per line</span>
+                        </div>
+                        <div class="form-field">
+                            <label for="expense-paid-by">Paid by options</label>
+                            <textarea id="expense-paid-by" name="paidBy" rows="6" class="list-input"></textarea>
+                            <span class="hint">One per line</span>
+                        </div>
+                    </div>
+                </section>
+
+                <!-- Save bar -->
+                <div class="save-bar">
+                    <button type="submit" class="btn btn-primary save-settings-btn">Save settings</button>
+                    <button type="button" class="btn btn-ghost reset-settings-btn">Reset to defaults</button>
+                    <p id="form-message" class="form-message" role="status"></p>
+                </div>
+            </form>
+        </main>
+
+        <footer class="footer"></footer>
+    </div>
+
+    <script type="module" src="./js/settings-page.js"></script>
+</body>
+
+</html>

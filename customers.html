@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Customers | Trusted Select</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body class="customers-body">
+    <div class="layout">
+        <header class="header"></header>
+        <nav class="sidenav"></nav>
+
+        <main class="main">
+            <!-- One customer's history (shown after clicking a customer) -->
+            <section class="card customer-detail" hidden>
+                <div class="card-head">
+                    <div>
+                        <h2 id="detail-name">Customer</h2>
+                        <p class="muted" id="detail-contact"></p>
+                    </div>
+                    <div class="card-head-tools">
+                        <a class="btn btn-primary btn-sm" id="detail-new-sale" href="sales.html">New sale</a>
+                        <button type="button" class="btn btn-danger btn-sm blacklist-btn">Blacklist</button>
+                        <button type="button" class="btn btn-ghost btn-sm close-detail-btn">Close</button>
+                    </div>
+                </div>
+
+                <div class="notice danger" id="detail-blacklist" hidden></div>
+
+                <div class="stats" id="detail-stats"></div>
+
+                <div class="table-wrap" style="margin-top: 18px;">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <th>Invoice</th>
+                                <th>Items</th>
+                                <th>Delivery</th>
+                                <th>Status</th>
+                                <th class="num">Net Sale</th>
+                                <th class="num">Customer Pays</th>
+                            </tr>
+                        </thead>
+                        <tbody id="detail-body"></tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Customer list -->
+            <section class="card">
+                <div class="card-head">
+                    <h2>Customers</h2>
+                    <div class="card-head-tools">
+                        <select id="customer-filter" aria-label="Show">
+                            <option value="">All customers</option>
+                            <option value="repeat">Repeat customers</option>
+                            <option value="blacklisted">Blacklisted</option>
+                        </select>
+                        <select id="customer-sort" aria-label="Sort customers">
+                            <option value="last">Recent first</option>
+                            <option value="spent">Top spenders</option>
+                            <option value="orders">Most orders</option>
+                            <option value="name">Name A–Z</option>
+                        </select>
+                        <input type="search" id="customer-search" placeholder="Search name, phone, address">
+                    </div>
+                </div>
+
+                <div class="summary-row" id="customer-summary"></div>
+
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Customer</th>
+                                <th>Phone</th>
+                                <th>Area</th>
+                                <th class="num">Orders</th>
+                                <th class="num">Total Spent</th>
+                                <th>Last Order</th>
+                                <th class="actions"></th>
+                            </tr>
+                        </thead>
+                        <tbody id="customer-table-body">
+                            <tr>
+                                <td class="empty" colspan="7">Loading...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <form class="card-foot blacklist-form" id="blacklist-form">
+                    <span class="field-label">Blacklist a number</span>
+                    <input type="tel" id="blacklist-phone" placeholder="01XXXXXXXXX" inputmode="numeric" required>
+                    <input type="text" id="blacklist-reason" placeholder="Reason (e.g. refused delivery twice)">
+                    <button type="submit" class="btn btn-danger btn-sm">Add to blacklist</button>
+                </form>
+
+                <div class="card-foot">
+                    <p class="hint">Customers are added automatically when you save a sale with a phone number.
+                        Sales saved before this page existed? Rebuild once to include them.</p>
+                    <button type="button" class="btn btn-ghost btn-sm rebuild-btn">Rebuild from sales</button>
+                    <p id="form-message" class="form-message" role="status"></p>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer"></footer>
+    </div>
+
+    <script type="module" src="./js/customers.js"></script>
+</body>
+
+</html>
