@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dashboard | Trusted Select</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="./css/style.css">
+</head>
+
+<body class="dashboard-body">
+    <div class="layout">
+        <header class="header"></header>
+        <nav class="sidenav"></nav>
+
+        <main class="main">
+            <section class="card-head" style="margin-bottom: 0;">
+                <p class="muted" id="period-label">Profit &amp; loss for the period</p>
+                <div id="dashboard-range"></div>
+            </section>
+
+            <!-- Profit & loss -->
+            <section class="stats" id="pl-stats" aria-label="Profit and loss"></section>
+
+            <h2 class="section-title">Inventory</h2>
+            <section class="stats" id="stock-stats" aria-label="Inventory"></section>
+
+            <div class="grid-2">
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Top selling products</h2>
+                    </div>
+                    <ul class="bar-list" id="top-products"></ul>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Expenses by category</h2>
+                    </div>
+                    <ul class="bar-list" id="expense-categories"></ul>
+                </section>
+            </div>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Month by month</h2>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Month</th>
+                                <th class="num">Orders</th>
+                                <th class="num">Sales</th>
+                                <th class="num">Gross Profit</th>
+                                <th class="num">Expenses</th>
+                                <th class="num">Net Profit</th>
+                            </tr>
+                        </thead>
+                        <tbody id="monthly-body">
+                            <tr><td class="empty" colspan="6">Loading...</td></tr>
+                        </tbody>
+                        <tfoot id="monthly-foot"></tfoot>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Needs reordering</h2>
+                    <a class="btn btn-ghost btn-sm" href="purchases.html">Record a purchase</a>
+                </div>
+                <div class="table-wrap">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Code</th>
+                                <th>Item Name</th>
+                                <th class="num">Stock</th>
+                                <th class="num">Alert At</th>
+                                <th>Status</th>
+                            </tr>
+                        </thead>
+                        <tbody id="low-stock-body">
+                            <tr><td class="empty" colspan="5">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </main>
+
+        <footer class="footer"></footer>
+    </div>
+
+    <script type="module" src="./js/dashboard.js"></script>
+</body>
+
+</html>

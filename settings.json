@@ -1,0 +1,39 @@
+{
+    "business": {
+        "name": "Trusted Select",
+        "tagline": "Business Tracker"
+    },
+
+    "currency": {
+        "symbol": "Tk",
+        "locale": "en-IN",
+        "decimals": 0
+    },
+
+    "products": {
+        "codePrefix": "TS-",
+        "defaultUnit": "pcs",
+        "defaultLowStockAlert": 5,
+        "categories": ["Clothing", "Accessories", "Home", "Other"],
+        "units": ["pcs", "set", "pair", "box", "kg", "dozen"]
+    },
+
+    "sales": {
+        "memoStartNumber": 1001,
+        "paymentMethods": ["Cash", "bKash", "Nagad", "Rocket", "Bank", "Card", "Due"]
+    },
+
+    "expenses": {
+        "categories": [
+            "Rent",
+            "Delivery / Courier",
+            "Packaging",
+            "Facebook Boost",
+            "Utility Bills",
+            "Salary",
+            "Internet / Phone",
+            "Other"
+        ],
+        "paidBy": ["Cash", "bKash", "Nagad", "Bank"]
+    }
+}
