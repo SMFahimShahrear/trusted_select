@@ -23,13 +23,14 @@
         "defaultPayment": "Cash",
         "paymentMethods": ["Cash", "bKash", "Nagad", "Rocket", "Bank", "Card", "Due"],
         "deliveryZones": [
-            { "name": "Inside Mirpur", "charge": 50, "courierFee": 50, "orderPrefix": "ID" },
-            { "name": "Inside Dhaka", "charge": 70, "courierFee": 60, "orderPrefix": "ID" },
-            { "name": "Outside Dhaka", "charge": 130, "courierFee": 110, "orderPrefix": "OD" }
+            { "name": "Inside Mirpur", "charge": 50, "courierFee": 50, "orderPrefix": "ID", "deliveryTime": "1-2 days" },
+            { "name": "Inside Dhaka", "charge": 70, "courierFee": 60, "orderPrefix": "ID", "deliveryTime": "1-2 days" },
+            { "name": "Outside Dhaka", "charge": 130, "courierFee": 110, "orderPrefix": "OD", "deliveryTime": "3-5 days" }
         ],
         "defaultZone": "Inside Dhaka",
         "freeDeliveryOver": 0,
-        "codChargePercent": 0
+        "codChargePercent": 0,
+        "contactPhone": "01568957619"
     },
 
     "expenses": {

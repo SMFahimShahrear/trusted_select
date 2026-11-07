@@ -261,6 +261,8 @@ hf.on(statusFilter, 'change', renderTable);
 
 
 // ---------- Start ----------
+const productTable = tableBody.closest('table');
+hf.q('.card-head-tools').append(hf.sortSelect(hf.sortable(productTable)), hf.exportButton(productTable, 'products'));
 resetForm();
 startPage({
     title: 'Products',

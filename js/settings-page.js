@@ -5,8 +5,9 @@
 // ---------- Imports ----------
 import { hf } from "./utils.js";
 import { startPage } from "./layout.js";
-import { loadSettings, DEFAULT_SETTINGS } from "./app-settings.js";
-import { saveAppSettings } from "./firebase.js";
+import { loadSettings, DEFAULT_SETTINGS, DEFAULT_SUMMARY } from "./app-settings.js";
+import { banglaSummary } from "./documents.js";
+import { saveAppSettings, getBackup } from "./firebase.js";
 
 
 // ---------- Elements ----------
@@ -20,6 +21,11 @@ const addZoneBtn = hf.q('.add-zone-btn');
 const defaultZoneSelect = hf.q('#default-zone');
 const freeDeliveryInput = hf.q('#free-delivery-over');
 const codChargeInput = hf.q('#cod-charge');
+const contactPhoneInput = hf.q('#contact-phone');
+const backupBtn = hf.q('.backup-btn');
+const summaryInput = hf.q('#summary-template');
+const summaryPreview = hf.q('#summary-preview');
+const resetSummaryBtn = hf.q('.reset-summary-btn');
 
 const invoicePrefixInput = hf.q('#invoice-prefix');
 const invoiceExample = hf.q('.invoice-example');
@@ -49,7 +55,7 @@ function fillDefaultSelect(select, items, wanted) {
 }
 
 // One delivery zone row: [name] [customer pays] [courier fee] [order prefix] [✕]
-function addZoneRow(zone = { name: '', charge: 0, courierFee: 0, orderPrefix: '' }) {
+function addZoneRow(zone = { name: '', charge: 0, courierFee: 0, orderPrefix: '', deliveryTime: '' }) {
     const row = hf.create('div', { className: 'zone-row' });
     const name = hf.create('input', {
         className: 'zone-name', attrs: { type: 'text', placeholder: 'e.g. Inside Dhaka', required: '', 'aria-label': 'Zone name' },
@@ -68,6 +74,10 @@ function addZoneRow(zone = { name: '', charge: 0, courierFee: 0, orderPrefix: ''
     });
     prefix.value = zone.orderPrefix ?? '';
     hf.on(prefix, 'input', () => { prefix.value = prefix.value.toUpperCase().replace(/[^A-Z0-9]/g, ''); });
+    const time = hf.create('input', {
+        className: 'zone-time', attrs: { type: 'text', maxlength: '20', placeholder: 'e.g. 1-2 days', 'aria-label': 'Delivery time' },
+    });
+    time.value = zone.deliveryTime ?? '';
     const remove = hf.create('button', {
         className: 'btn btn-ghost btn-sm btn-icon', text: '✕', attrs: { type: 'button', 'aria-label': 'Remove zone' },
     });
@@ -81,7 +91,7 @@ function addZoneRow(zone = { name: '', charge: 0, courierFee: 0, orderPrefix: ''
     });
     hf.on(name, 'input', refreshZoneSelect);
 
-    row.append(name, charge, fee, prefix, remove);
+    row.append(name, charge, fee, prefix, time, remove);
     zoneList.append(row);
 }
 
@@ -92,6 +102,7 @@ function readZones() {
             charge: hf.num(hf.q('.zone-charge', row).value),
             courierFee: hf.num(hf.q('.zone-fee', row).value),
             orderPrefix: hf.q('.zone-prefix', row).value.trim(),
+            deliveryTime: hf.q('.zone-time', row).value.trim(),
         }))
         .filter((z) => z.name);
 }
@@ -105,6 +116,9 @@ function fillForm(s) {
     fillDefaultSelect(defaultZoneSelect, s.sales.deliveryZones.map((z) => z.name), s.sales.defaultZone);
     freeDeliveryInput.value = s.sales.freeDeliveryOver ?? 0;
     codChargeInput.value = s.sales.codChargePercent ?? 0;
+    contactPhoneInput.value = s.sales.contactPhone || '';
+    summaryInput.value = s.sales.summaryTemplate?.trim() ? s.sales.summaryTemplate : DEFAULT_SUMMARY;
+    showSummaryPreview();
 
     invoicePrefixInput.value = s.sales.invoicePrefix || '';
     showInvoiceExample();
@@ -155,6 +169,8 @@ function readForm() {
             defaultZone: defaultZoneSelect.value || zones[0].name,
             freeDeliveryOver: hf.num(freeDeliveryInput.value),
             codChargePercent: hf.num(codChargeInput.value),
+            contactPhone: hf.phone(contactPhoneInput.value),
+            summaryTemplate: summaryInput.value.trim() === DEFAULT_SUMMARY.trim() ? '' : summaryInput.value,
         },
         expenses: {
             categories: lists['Expense categories'],
@@ -164,6 +180,20 @@ function readForm() {
 }
 
 
+// Show the message for a made-up order, so you can see your changes
+const SAMPLE_SALE = {
+    customerName: 'আরশি হাবিব', customerPhone: '01873682563', customerAddress: 'মহেশপুর, মেহেরপুর',
+    orderNo: 'OD26110700001', invoiceNo: '2600001', date: new Date(), deliveryZone: 'Outside Dhaka',
+    items: [{ itemName: 'Wooden money-saving box', qty: 1, unitPrice: 260 }, { itemName: 'Marker Pen', qty: 2, unitPrice: 30 }],
+    discount: 0, deliveryCharge: 130, advancePaid: 100, payment: 'bKash', notes: '',
+};
+function showSummaryPreview() {
+    const preview = {
+        sales: { ...DEFAULT_SETTINGS.sales, deliveryZones: readZones(), contactPhone: contactPhoneInput.value, summaryTemplate: summaryInput.value },
+    };
+    summaryPreview.textContent = banglaSummary(SAMPLE_SALE, preview);
+}
+
 function showInvoiceExample() {
     const yy = String(new Date().getFullYear() % 100).padStart(2, '0');
     invoiceExample.textContent = `${invoicePrefixInput.value.trim()}${yy}00001`;
@@ -172,6 +202,34 @@ function showInvoiceExample() {
 
 // ---------- Events ----------
 hf.on(invoicePrefixInput, 'input', showInvoiceExample);
+hf.on(summaryInput, 'input', hf.debounce(showSummaryPreview, 200));
+hf.on(contactPhoneInput, 'input', hf.debounce(showSummaryPreview, 200));
+hf.on(resetSummaryBtn, 'click', () => {
+    if (!confirm('Put back the original Bangla message? (Saved when you press "Save settings")')) return;
+    summaryInput.value = DEFAULT_SUMMARY;
+    showSummaryPreview();
+});
+
+hf.on(backupBtn, 'click', async () => {
+    hf.busy(backupBtn, true, 'Preparing...');
+    try {
+        const backup = await getBackup();
+        const blob = new Blob([JSON.stringify(backup, null, 2)], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const a = hf.create('a', { attrs: { href: url, download: `trusted-select-backup-${hf.today()}.json` } });
+        document.body.append(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 2000);
+        const counts = ['products', 'sales', 'customers', 'expenses'].map((k) => `${backup[k].length} ${k}`).join(', ');
+        hf.message(message, `Backup downloaded ✓ (${counts})`);
+    } catch (error) {
+        console.error(error);
+        hf.message(message, `Could not make backup: ${error.message}`, 'error', 0);
+    } finally {
+        hf.busy(backupBtn, false);
+    }
+});
 hf.on(addZoneBtn, 'click', () => {
     addZoneRow();
     hf.q('.zone-row:last-child .zone-name', zoneList).focus();

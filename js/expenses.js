@@ -124,6 +124,8 @@ hf.on(expenseForm, 'submit', async (event) => {
 
 
 // ---------- Start ----------
+const expenseTable = tableBody.closest('table');
+hf.q('.card-head-tools').append(hf.sortSelect(hf.sortable(expenseTable)), hf.exportButton(expenseTable, 'expenses'));
 resetForm();
 range = createRangeFilter(hf.q('#expense-range'), loadExpenses);
 startPage({

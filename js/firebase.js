@@ -368,6 +368,15 @@ export async function updateSale(old, changes) {
 
 export const getSales = (from, to) => listByDate("sales", from, to);
 
+// Change a few fields on a sale that don't affect stock or totals (phone check, OTP code, notes)
+export const patchSale = (id, fields) => updateDoc(doc(db, "sales", id), { ...fields, updatedAt: serverTimestamp() });
+
+// Same for a customer (e.g. phone verified)
+export async function patchCustomer(phone, fields) {
+    if (!phone) return;
+    await setDoc(doc(db, "customers", phone), { phone, ...fields, updatedAt: serverTimestamp() }, { merge: true });
+}
+
 export async function getSale(id) {
     const snap = await getDoc(doc(db, "sales", id));
     return snap.exists() ? { id: snap.id, ...snap.data() } : null;
@@ -429,6 +438,22 @@ export const saveTemplate = (kind, { name, size, data }) =>
     setDoc(doc(db, "templates", kind), { name, size, data, updatedAt: serverTimestamp() });
 
 export const deleteTemplate = (kind) => deleteDoc(doc(db, "templates", kind));
+
+
+// ---------- Full backup ----------
+// Everything except the print templates, as plain JSON (dates become text like 2026-11-07T00:00:00.000Z)
+export async function getBackup() {
+    const names = ["products", "sales", "purchases", "expenses", "customers", "settings", "Track Data"];
+    const lists = await Promise.all(names.map((n) => getDocs(collection(db, n)).then(toList)));
+    const plain = (value) => JSON.parse(JSON.stringify(value, (key, v) => {
+        if (v && typeof v === 'object' && typeof v.toDate === 'function') return v.toDate().toISOString();
+        if (v && typeof v === 'object' && 'seconds' in v && 'nanoseconds' in v) return new Date(v.seconds * 1000).toISOString();
+        return v;
+    }));
+    const backup = { createdAt: new Date().toISOString(), app: "Trusted Select" };
+    names.forEach((n, i) => { backup[n] = plain(lists[i]); });
+    return backup;
+}
 
 
 // ---------- Expenses ----------

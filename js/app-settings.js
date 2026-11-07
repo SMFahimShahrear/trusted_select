@@ -9,6 +9,32 @@ import { getAppSettings } from "./firebase.js";
 
 const d = defaults;
 
+// The Bangla message sent to customers (editable on the Settings page).
+// A line disappears when its {discount}, {advance}, {deliveryTime}, {notes} or {contact} is empty.
+export const DEFAULT_SUMMARY = `প্রিয় {name},
+{business}-এ অর্ডার করার জন্য ধন্যবাদ! অনুগ্রহ করে আপনার অর্ডারের তথ্যগুলো মিলিয়ে নিন:
+
+অর্ডার নম্বর: {orderNo}
+নাম: {name}
+ফোন: {phone}
+ঠিকানা: {address}
+
+পণ্য:
+{items}
+
+পণ্যের মূল্য: {subtotal}
+ছাড়: {discount}
+ডেলিভারি চার্জ ({area}): {delivery}
+সর্বমোট: {total}
+অগ্রিম পরিশোধ: {advance}
+ডেলিভারির সময় পরিশোধ করতে হবে: {due}
+আনুমানিক ডেলিভারি সময়: {deliveryTime}
+নোট: {notes}
+
+কোনো তথ্য ভুল থাকলে দয়া করে এখনই আমাদের জানান। পণ্য হাতে পেয়ে ডেলিভারি ম্যানের সামনে দেখে নিয়ে মূল্য পরিশোধ করবেন।
+ধন্যবাদ — {business}
+যোগাযোগ: {contact}`;
+
 export const DEFAULT_SETTINGS = {
     products: {
         codePrefix: d.products?.codePrefix ?? 'TS-',
@@ -22,13 +48,15 @@ export const DEFAULT_SETTINGS = {
         defaultPayment: d.sales?.defaultPayment ?? 'Cash',
         paymentMethods: d.sales?.paymentMethods ?? ['Cash'],
         deliveryZones: d.sales?.deliveryZones ?? [
-            { name: 'Inside Mirpur', charge: 50, courierFee: 50, orderPrefix: 'ID' },
-            { name: 'Inside Dhaka', charge: 70, courierFee: 60, orderPrefix: 'ID' },
-            { name: 'Outside Dhaka', charge: 130, courierFee: 110, orderPrefix: 'OD' },
+            { name: 'Inside Mirpur', charge: 50, courierFee: 50, orderPrefix: 'ID', deliveryTime: '1-2 days' },
+            { name: 'Inside Dhaka', charge: 70, courierFee: 60, orderPrefix: 'ID', deliveryTime: '1-2 days' },
+            { name: 'Outside Dhaka', charge: 130, courierFee: 110, orderPrefix: 'OD', deliveryTime: '3-5 days' },
         ],
         defaultZone: d.sales?.defaultZone ?? 'Inside Dhaka',
         freeDeliveryOver: d.sales?.freeDeliveryOver ?? 0,
         codChargePercent: d.sales?.codChargePercent ?? 0,   // courier's cash-on-delivery charge, % of what they collect
+        contactPhone: d.sales?.contactPhone ?? '',          // shown in the Bangla order message
+        summaryTemplate: '',                                // '' = use DEFAULT_SUMMARY
     },
     expenses: {
         categories: d.expenses?.categories ?? ['Other'],
@@ -51,6 +79,7 @@ export async function loadSettings() {
         charge: Number(z.charge) || 0,
         courierFee: Number(z.courierFee) || 0,
         orderPrefix: z.orderPrefix ?? (/outside/i.test(z.name) ? 'OD' : 'ID'),
+        deliveryTime: z.deliveryTime ?? (/outside/i.test(z.name) ? '3-5 days' : '1-2 days'),
     }));
     return {
         products: { ...DEFAULT_SETTINGS.products, ...saved.products },

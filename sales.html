@@ -4,6 +4,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ea6c0a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='18' font-weight='700' fill='white' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
     <title>Sales | Trusted Select</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -131,6 +133,17 @@
                         <span class="hint">Paid before delivery (e.g. bKash)</span>
                     </div>
 
+                    <div class="form-field">
+                        <label for="trx-id">Trx ID</label>
+                        <input type="text" id="trx-id" name="trxId" placeholder="bKash / Nagad transaction ID" autocomplete="off">
+                    </div>
+
+                    <div class="form-field">
+                        <label for="sale-notes">Notes</label>
+                        <input type="text" id="sale-notes" name="notes" placeholder="e.g. call before delivery" autocomplete="off">
+                        <span class="hint">Printed on the order confirmation</span>
+                    </div>
+
                     <!-- Totals -->
                     <div class="form-field full">
                         <div class="bill-wrap">
@@ -154,6 +167,7 @@
                         <button type="submit" class="btn btn-primary add-sale-btn">Save sale</button>
                         <button type="button" class="btn btn-danger delete-sale-btn" hidden>Delete order</button>
                         <p id="form-message" class="form-message" role="status"></p>
+                        <span class="after-save" hidden></span>
                     </div>
                 </form>
             </section>
@@ -171,11 +185,19 @@
 
                 <div class="summary-row" id="sales-summary"></div>
                 <div class="notice" id="sales-notice" hidden></div>
+                <div class="selection-bar" id="selection-bar" hidden>
+                    <span id="selection-count">0 selected</span>
+                    <a class="btn btn-primary btn-sm" id="print-sel-2up" href="#">Print invoices (2 per page)</a>
+                    <a class="btn btn-ghost btn-sm" id="print-sel-1up" href="#">Invoices (1 per page)</a>
+                    <a class="btn btn-ghost btn-sm" id="print-sel-conf" href="#">Order confirmations</a>
+                    <button type="button" class="btn btn-ghost btn-sm" id="clear-selection">Clear</button>
+                </div>
 
                 <div class="table-wrap">
-                    <table class="data-table">
+                    <table class="data-table compact">
                         <thead>
                             <tr>
+                                <th class="select-col"><input type="checkbox" id="select-all" aria-label="Select all shown orders"></th>
                                 <th>Date</th>
                                 <th>Invoice</th>
                                 <th>Customer</th>
@@ -188,7 +210,7 @@
                         </thead>
                         <tbody id="sales-table-body">
                             <tr>
-                                <td class="empty" colspan="8">Loading...</td>
+                                <td class="empty" colspan="9">Loading...</td>
                             </tr>
                         </tbody>
                     </table>

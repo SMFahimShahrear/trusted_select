@@ -173,6 +173,8 @@ hf.on(purchaseForm, 'submit', async (event) => {
 
 
 // ---------- Start ----------
+const purchaseTable = tableBody.closest('table');
+hf.q('.card-head-tools').append(hf.sortSelect(hf.sortable(purchaseTable)), hf.exportButton(purchaseTable, 'purchases'));
 dateInput.value = hf.today();
 range = createRangeFilter(hf.q('#purchase-range'), loadPurchases);
 

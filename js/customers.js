@@ -18,7 +18,6 @@ const detailBlacklist = hf.q('#detail-blacklist');
 const blacklistForm = hf.q('#blacklist-form');
 const blacklistPhone = hf.q('#blacklist-phone');
 const blacklistReason = hf.q('#blacklist-reason');
-const sortSelect = hf.q('#customer-sort');
 const summary = hf.q('#customer-summary');
 const tableBody = hf.q('#customer-table-body');
 const rebuildBtn = hf.q('.rebuild-btn');
@@ -70,6 +69,7 @@ function createCustomerRow(c) {
     const nameCell = hf.create('td', { className: 'wrap' });
     nameCell.append(hf.create('strong', { text: c.name || '—' }));
     if (c.blacklisted) nameCell.append(hf.create('span', { className: 'badge badge-danger', text: 'Blacklisted' }));
+    if (c.phoneVerified) nameCell.append(hf.create('span', { className: 'badge badge-ok', text: '✓ Verified' }));
     if (c.blacklisted && c.blacklistReason) nameCell.append(hf.create('span', { className: 'sub negative', text: c.blacklistReason }));
     if (c.address) nameCell.append(hf.create('span', { className: 'sub', text: c.address }));
 
@@ -95,18 +95,12 @@ function createCustomerRow(c) {
 
 function renderTable() {
     const term = searchInput.value.trim().toLowerCase();
-    const sorters = {
-        last: (a, b) => millis(b.lastOrderDate) - millis(a.lastOrderDate),
-        spent: (a, b) => (b.totalSpent || 0) - (a.totalSpent || 0),
-        orders: (a, b) => (b.orderCount || 0) - (a.orderCount || 0),
-        name: (a, b) => (a.name || '').localeCompare(b.name || ''),
-    };
     const show = filterSelect.value;
     const shown = customers
         .filter((c) => show !== 'blacklisted' || c.blacklisted)
         .filter((c) => show !== 'repeat' || (c.orderCount || 0) > 1)
         .filter((c) => !term || `${c.name} ${c.phone} ${c.address} ${c.email} ${c.blacklistReason || ''}`.toLowerCase().includes(term))
-        .sort(sorters[sortSelect.value]);
+        .sort((a, b) => millis(b.lastOrderDate) - millis(a.lastOrderDate));   // default: most recent first
 
     if (customers.length === 0) {
         hf.tableMessage(tableBody, 'No customers yet. They appear here after you save a sale.', COLUMNS);
@@ -177,7 +171,7 @@ async function openCustomer(phone) {
             deliveryCell.append(hf.create('span', { text: hf.money(s.deliveryCharge || 0) }));
             if (s.deliveryZone) deliveryCell.append(hf.create('span', { className: 'sub', text: s.deliveryZone }));
 
-            const statusCell = hf.create('td');
+            const statusCell = hf.create('td', { className: 'status-cell' });
             statusCell.append(statusBadge(s));
             if (s.payment) statusCell.append(hf.create('span', { className: 'sub', text: s.payment }));
 
@@ -244,7 +238,6 @@ function closeCustomer() {
 
 // ---------- Events ----------
 hf.on(searchInput, 'input', hf.debounce(renderTable, 200));
-hf.on(sortSelect, 'change', renderTable);
 hf.on(filterSelect, 'change', renderTable);
 hf.on(blacklistBtn, 'click', () => { if (openPhone) toggleBlacklist(openPhone); });
 
@@ -285,6 +278,9 @@ hf.on(rebuildBtn, 'click', async () => {
 
 
 // ---------- Start ----------
+const customerTable = tableBody.closest('table');
+hf.sortable(detailBody.closest('table'));
+filterSelect.closest('.card-head-tools').append(hf.sortSelect(hf.sortable(customerTable)), hf.exportButton(customerTable, 'customers'));
 startPage({
     title: 'Customers',
     onReady: async () => {

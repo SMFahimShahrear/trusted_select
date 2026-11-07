@@ -4,11 +4,14 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="robots" content="noindex, nofollow">
+    <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%23ea6c0a'/%3E%3Ctext x='16' y='22' font-family='Arial' font-size='18' font-weight='700' fill='white' text-anchor='middle'%3ET%3C/text%3E%3C/svg%3E">
     <title>Print | Trusted Select</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="./css/style.css">
+    <style id="page-size">@media print { @page { size: A4 portrait; margin: 0; } }</style>
 </head>
 
 <body class="print-body">
@@ -17,44 +20,64 @@
         <nav class="sidenav"></nav>
 
         <main class="main">
-            <!-- Choose what to print -->
+            <!-- What to print -->
             <section class="card no-print">
                 <div class="card-head">
-                    <h2>Print an order</h2>
+                    <h2>What to print</h2>
                     <div class="segmented" role="radiogroup" aria-label="Document">
-                        <label><input type="radio" name="doc-kind" value="invoice" checked> Invoice</label>
-                        <label><input type="radio" name="doc-kind" value="confirmation"> Order confirmation</label>
+                        <label><input type="radio" name="doc-kind" value="invoice-2up" checked> Invoice · 2 per page</label>
+                        <label><input type="radio" name="doc-kind" value="invoice-1up"> Invoice · 1 per page</label>
+                        <label><input type="radio" name="doc-kind" value="order-confirmation"> Order confirmation</label>
                     </div>
                 </div>
-
-                <div class="form-grid">
-                    <div class="form-field full">
-                        <span class="field-label">Find the order</span>
-                        <div class="picker-tools">
-                            <div id="print-range"></div>
-                            <input type="search" id="order-search" placeholder="Invoice, order no, name or phone">
-                        </div>
-                    </div>
-                    <div class="form-field full">
-                        <label for="order-select">Order</label>
-                        <select id="order-select"></select>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" class="btn btn-primary print-btn">Print / Save as PDF</button>
-                        <button type="button" class="btn btn-ghost download-btn">Download Word file</button>
-                        <p id="form-message" class="form-message" role="status"></p>
-                    </div>
+                <div class="form-actions" style="padding-top: 0;">
+                    <button type="button" class="btn btn-primary print-btn">Print / Save as PDF</button>
+                    <button type="button" class="btn btn-ghost download-btn">Download Word file</button>
+                    <span class="muted print-summary">Tick the orders below.</span>
+                    <p id="form-message" class="form-message" role="status"></p>
                 </div>
             </section>
 
-            <!-- Preview of the filled-in document -->
+            <!-- Choose orders -->
+            <section class="card no-print">
+                <div class="card-head">
+                    <h2>Orders</h2>
+                    <div class="card-head-tools">
+                        <select id="status-filter" aria-label="Filter by status"></select>
+                        <div id="print-range"></div>
+                        <input type="search" id="order-search" placeholder="Invoice, order no, name or phone">
+                    </div>
+                </div>
+
+                <div class="table-wrap picker-table">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th class="select-col"><input type="checkbox" id="select-all" aria-label="Select all shown orders"></th>
+                                <th>Date</th>
+                                <th>Invoice</th>
+                                <th>Order</th>
+                                <th>Customer</th>
+                                <th>Status</th>
+                                <th class="num">Customer Pays</th>
+                            </tr>
+                        </thead>
+                        <tbody id="order-table-body">
+                            <tr><td class="empty" colspan="7">Loading...</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+
+            <!-- Preview -->
             <section class="card preview-card">
                 <div class="card-head no-print">
                     <h2>Preview</h2>
-                    <span class="hint">In the print window, choose <strong>Save as PDF</strong> to get a PDF.</span>
+                    <span class="hint">In the print window choose <strong>Save as PDF</strong> for a PDF. Set margins to
+                        <strong>None</strong> if your browser asks.</span>
                 </div>
                 <div id="preview" class="preview-area">
-                    <p class="empty-note">Choose an order to see it here.</p>
+                    <p class="empty-note">Tick one or more orders to see them here.</p>
                 </div>
             </section>
 
@@ -62,20 +85,22 @@
             <section class="card no-print">
                 <div class="card-head">
                     <div>
-                        <h2>Templates</h2>
-                        <p class="hint">Your own Word (.docx) files. Type the placeholders below where the details should go.</p>
+                        <h2>Designs</h2>
+                        <p class="hint">Built from your Word files. Upload your own .docx to replace a design, or go back to
+                            the built-in one any time.</p>
                     </div>
                 </div>
 
                 <div class="template-list" id="template-list"></div>
 
                 <details class="tags-help">
-                    <summary>Placeholders you can use in your Word files</summary>
+                    <summary>Placeholders you can use in your own Word files</summary>
                     <div class="tags-grid">
                         <div>
                             <h3>Order</h3>
-                            <code>{invoiceNo}</code> <code>{orderNo}</code> <code>{date}</code> <code>{status}</code>
-                            <code>{payment}</code> <code>{printedOn}</code> <code>{businessName}</code>
+                            <code>{invoiceNo}</code> <code>{orderNo}</code> <code>{date}</code> <code>{dateDots}</code>
+                            <code>{status}</code> <code>{payment}</code> <code>{paymentStatus}</code> <code>{trxId}</code>
+                            <code>{notes}</code> <code>{estDelivery}</code> <code>{printedOn}</code> <code>{businessName}</code>
                         </div>
                         <div>
                             <h3>Customer</h3>
@@ -86,20 +111,31 @@
                             <h3>Money</h3>
                             <code>{subtotal}</code> <code>{discount}</code> <code>{deliveryCharge}</code>
                             <code>{total}</code> <code>{advancePaid}</code> <code>{due}</code>
-                            <p class="hint">These include "Tk". Add <code>Amount</code> for the number only, e.g.
-                                <code>{totalAmount}</code> → 1,830. <code>{due}</code> = cash the courier collects.</p>
+                            <p class="hint">"Tk 1,830". Add <code>Amount</code> for "1,830" or <code>Fixed</code> for
+                                "1,830.00", e.g. <code>{totalFixed}</code>. <code>{due}</code> = cash the courier collects.</p>
                         </div>
                         <div>
-                            <h3>Items (repeats once per item)</h3>
-                            <p class="hint">Put <code>{#items}</code> before and <code>{/items}</code> after. In a table, put
-                                <code>{#items}</code> in the first cell and <code>{/items}</code> in the last cell of
-                                the row.</p>
+                            <h3>Items</h3>
+                            <p class="hint">In a table row: <code>{#items}</code> in the first cell, <code>{/items}</code> in
+                                the last. Use <code>{#rows}</code>…<code>{/rows}</code> instead to keep 6 rows with empty
+                                ones.</p>
                             <code>{no}</code> <code>{name}</code> <code>{code}</code> <code>{qty}</code>
-                            <code>{price}</code> <code>{lineTotal}</code> · <code>{itemCount}</code>
+                            <code>{qty2}</code> <code>{price}</code> <code>{priceFixed}</code> <code>{lineTotal}</code>
+                            <code>{lineTotalFixed}</code>
+                        </div>
+                        <div>
+                            <h3>Tick boxes (☒ / ☐)</h3>
+                            <code>{codBox}</code> <code>{bankBox}</code> <code>{mfsBox}</code> <code>{cashBox}</code>
+                            <code>{paidBox}</code> <code>{partBox}</code> <code>{unpaidBox}</code>
+                        </div>
+                        <div>
+                            <h3>2 per page</h3>
+                            <p class="hint">Put <code>{#inv1}</code>…<code>{/inv1}</code> around the left invoice and
+                                <code>{#inv2}</code>…<code>{/inv2}</code> around the right one.</p>
                         </div>
                     </div>
-                    <p class="hint">Tip: type each placeholder in one go (don't format half of it), including both
-                        curly brackets.</p>
+                    <p class="hint">Type each placeholder in one go with both curly brackets. Several orders print on
+                        separate pages automatically.</p>
                 </details>
             </section>
         </main>

@@ -14,6 +14,7 @@ import {
     addSale, updateSale, getSales, deleteSale, getProducts, getCustomer, nextTrackNumber,
     getAllSales, hasValidDate, repairSaleDates,
 } from "./firebase.js";
+import { openSummary, openOtp } from "./documents.js";
 
 
 // ---------- Elements ----------
@@ -46,6 +47,12 @@ const feeHint = hf.q('.courier-hint');
 const discountInput = hf.q('#discount');
 const paymentSelect = hf.q('#payment');
 const advanceInput = hf.q('#advance-paid');
+const trxInput = hf.q('#trx-id');
+const notesInput = hf.q('#sale-notes');
+const afterSave = hf.q('.after-save');
+const selectAll = hf.q('#select-all');
+const selectionBar = hf.q('#selection-bar');
+const selectionCount = hf.q('#selection-count');
 
 const bill = {
     subtotal: hf.q('#bill-subtotal'), discount: hf.q('#bill-discount'), delivery: hf.q('#bill-delivery'),
@@ -59,7 +66,7 @@ const summary = hf.q('#sales-summary');
 const notice = hf.q('#sales-notice');
 const tableBody = hf.q('#sales-table-body');
 
-const COLUMNS = 8;
+const COLUMNS = 9;
 let settings = DEFAULT_SETTINGS;   // replaced with saved settings when the page loads
 let products = [];                 // from Firestore
 let sales = [];                    // sales in the chosen period
@@ -69,6 +76,7 @@ let deliveryByHand = false;        // true once someone types their own delivery
 let feeByHand = false;             // true once someone types their own courier fee
 let checkedForBrokenSales = false;
 let customerWarning = '';          // set when the phone number is blacklisted
+const selected = new Set();        // ids of orders ticked in the list
 
 
 // ---------- Products & stock ----------
@@ -277,6 +285,8 @@ function readSaleForm() {
         deliveryCharge: hf.num(data.deliveryCharge),
         courierFee: hf.num(data.courierFee),
         advancePaid: hf.num(data.advancePaid),
+        trxId: (data.trxId || '').trim(),
+        notes: (data.notes || '').trim(),
         payment: data.payment || '',
         discount,
         items,
@@ -440,6 +450,8 @@ function startEdit(sale) {
     fillPayments(sale.payment);
     paymentSelect.value = sale.payment || paymentSelect.value;
     advanceInput.value = sale.advancePaid || 0;
+    trxInput.value = sale.trxId || '';
+    notesInput.value = sale.notes || '';
 
     hf.clear(itemsBody);
     for (const item of sale.items || []) createItemRow(item);
@@ -511,6 +523,28 @@ async function removeSale(sale) {
 }
 
 
+// Buttons shown for a few seconds after a new sale is saved
+function showAfterSave(sale) {
+    afterSave.replaceChildren(hf.rowButton('বাংলা সামারি', 'ghost', () => openSummary(sale, settings)));
+    hf.show(afterSave);
+    clearTimeout(afterSave._timer);
+    afterSave._timer = setTimeout(() => hf.hide(afterSave), 12000);
+}
+
+// ---------- Selecting orders to print ----------
+function updateSelection() {
+    const shownIds = hf.qa('#sales-table-body tr[data-id]').map((r) => r.dataset.id);
+    for (const id of [...selected]) if (!sales.some((s) => s.id === id)) selected.delete(id);
+    selectionCount.textContent = `${selected.size} selected`;
+    selectionBar.hidden = selected.size === 0;
+    const ids = encodeURIComponent([...selected].join(','));
+    hf.q('#print-sel-2up').href = `print.html?sales=${ids}&doc=invoice-2up`;
+    hf.q('#print-sel-1up').href = `print.html?sales=${ids}&doc=invoice-1up`;
+    hf.q('#print-sel-conf').href = `print.html?sales=${ids}&doc=order-confirmation`;
+    selectAll.checked = shownIds.length > 0 && shownIds.every((id) => selected.has(id));
+    selectAll.indeterminate = !selectAll.checked && shownIds.some((id) => selected.has(id));
+}
+
 // ---------- Orders list ----------
 function createSaleRow(sale) {
     const key = statusOf(sale);
@@ -527,13 +561,24 @@ function createSaleRow(sale) {
     } else {
         customerCell.append(hf.create('strong', { text: sale.customerName || '—' }));
     }
+    if (sale.phoneVerified) customerCell.append(hf.create('span', { className: 'badge badge-ok', text: '✓ Verified' }));
     const contact = [sale.customerPhone, sale.customerAddress].filter(Boolean).join(' · ');
     if (contact) customerCell.append(hf.create('span', { className: 'sub', text: contact }));
 
     const itemsText = (sale.items || []).map((i) => `${i.itemName} × ${i.qty}`).join(', ');
 
+    const pickCell = hf.create('td', { className: 'select-col' });
+    const pick = hf.create('input', { attrs: { type: 'checkbox', 'aria-label': 'Select order' } });
+    pick.checked = selected.has(sale.id);
+    hf.on(pick, 'change', () => {
+        if (pick.checked) selected.add(sale.id); else selected.delete(sale.id);
+        pick.closest('tr').classList.toggle('is-selected', pick.checked);
+        updateSelection();
+    });
+    pickCell.append(pick);
+
     // Status: change it right here
-    const statusCell = hf.create('td');
+    const statusCell = hf.create('td', { className: 'status-cell' });
     const select = hf.create('select', { className: `status-select st-${key}`, attrs: { 'aria-label': 'Order status' } });
     fillStatusSelect(select);
     select.value = key;
@@ -553,13 +598,22 @@ function createSaleRow(sale) {
     });
 
     const actions = hf.create('td', { className: 'actions' });
-    const printLink = hf.create('a', {
-        className: 'btn btn-ghost btn-sm', text: 'Print', attrs: { href: `print.html?sale=${encodeURIComponent(sale.id)}` },
-    });
-    actions.append(printLink, hf.rowButton('Edit', 'ghost', () => startEdit(sale)));
+    const id = encodeURIComponent(sale.id);
+    actions.append(
+        hf.rowButton('Edit', 'ghost', () => startEdit(sale)),
+        hf.menuButton([
+            { label: 'Print invoice', href: `print.html?sales=${id}&doc=invoice-1up` },
+            { label: 'Print order confirmation', href: `print.html?sales=${id}&doc=order-confirmation` },
+            { label: 'বাংলা সামারি (copy & send)', onClick: () => openSummary(sale, settings) },
+            { label: sale.phoneVerified ? 'Phone verified ✓' : 'Verify phone (OTP)', onClick: () => openOtp(sale, () => loadSales()) },
+            { label: 'Delete order', danger: true, onClick: () => removeSale(sale) },
+        ]),
+    );
 
-    const row = hf.create('tr', { className: isActive(sale) ? '' : 'row-muted' });
+    const row = hf.create('tr', { className: [isActive(sale) ? '' : 'row-muted', selected.has(sale.id) ? 'is-selected' : ''].join(' ').trim() });
+    row.dataset.id = sale.id;
     row.append(
+        pickCell,
         hf.create('td', { text: hasValidDate(sale) ? hf.date(sale.date) : '?' }),
         invoiceCell, customerCell,
         hf.create('td', { className: 'wrap', text: itemsText }),
@@ -596,7 +650,7 @@ function renderTable() {
         if (filter && !['toShip', 'owes'].includes(filter) && statusOf(s) !== filter) return false;
         if (!term) return true;
         const text = [
-            s.customerName, s.customerPhone, s.invoiceNo, s.memoNo, s.orderNo,
+            s.customerName, s.customerPhone, s.invoiceNo, s.memoNo, s.orderNo, s.trxId, s.notes,
             ...(s.items || []).map((i) => i.itemName),
         ].join(' ');
         return text.toLowerCase().includes(term);
@@ -609,6 +663,7 @@ function renderTable() {
     }
     hf.clear(tableBody);
     shown.forEach((sale) => tableBody.append(createSaleRow(sale)));
+    updateSelection();
 }
 
 // When nothing shows, look for sales whose date can't be read and offer to fix them
@@ -678,6 +733,24 @@ hf.on(statusSelect, 'change', updateTotals);
 hf.on(searchInput, 'input', hf.debounce(renderTable, 200));
 hf.on(statusFilter, 'change', renderTable);
 hf.on(cancelEditBtn, 'click', resetSaleForm);
+hf.on(selectAll, 'change', () => {
+    hf.qa('#sales-table-body tr[data-id]').forEach((row) => {
+        if (selectAll.checked) selected.add(row.dataset.id); else selected.delete(row.dataset.id);
+        row.classList.toggle('is-selected', selectAll.checked);
+        const box = row.querySelector('.select-col input');
+        if (box) box.checked = selectAll.checked;
+    });
+    updateSelection();
+});
+hf.on(hf.q('#clear-selection'), 'click', () => {
+    selected.clear();
+    hf.qa('#sales-table-body tr[data-id]').forEach((row) => {
+        row.classList.remove('is-selected');
+        const box = row.querySelector('.select-col input');
+        if (box) box.checked = false;
+    });
+    updateSelection();
+});
 hf.on(deleteSaleBtn, 'click', () => {
     if (editing) removeSale(editing);
 });
@@ -712,11 +785,15 @@ hf.on(saleForm, 'submit', async (event) => {
         sale.invoiceNo = await setInvoiceNo(sale.invoiceNo, sale.date);
         sale.orderNo = await setOrderNo(sale.orderNo, sale.date, sale.deliveryZone);
         if (editing) {
+            for (const key of ['phoneVerified', 'verifiedAt', 'verifiedBy', 'otpCode', 'otpCreatedAt']) {
+                if (editing[key] !== undefined && sale.customerPhone === editing.customerPhone) sale[key] = editing[key];
+            }
             await updateSale(editing, sale);
             hf.message(message, `Invoice ${sale.invoiceNo} updated ✓`);
         } else {
             await addSale(sale);
-            hf.message(message, `Invoice ${sale.invoiceNo} · Order ${sale.orderNo} for ${sale.customerName} saved ✓`);
+            hf.message(message, `Invoice ${sale.invoiceNo} · Order ${sale.orderNo} for ${sale.customerName} saved ✓`, 'success', 12);
+            showAfterSave(sale);
         }
         hf.busy(submitBtn, false);
         products = await getProducts();
@@ -739,6 +816,8 @@ statusFilter.replaceChildren(
     ...STATUSES.map((s) => new Option(s.label, s.key)),
 );
 range = createRangeFilter(hf.q('#sales-range'), loadSales);
+const salesTable = tableBody.closest('table');
+searchInput.closest('.card-head-tools').append(hf.sortSelect(hf.sortable(salesTable)), hf.exportButton(salesTable, 'sales'));
 
 startPage({
     title: 'Sales',

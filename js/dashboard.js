@@ -206,7 +206,11 @@ function renderMonthly(sales, expenses) {
     };
 
     hf.clear(monthlyBody);
-    keys.forEach((k) => monthlyBody.append(makeRow(months[k].label, months[k])));
+    keys.forEach((k) => {
+        const row = makeRow(months[k].label, months[k]);
+        row.cells[0].dataset.sort = k;          // "2026-11" so months sort by date, not alphabetically
+        monthlyBody.append(row);
+    });
 
     if (keys.length > 1) {
         const total = { orders: 0, sales: 0, gross: 0, expenses: 0 };
@@ -239,5 +243,7 @@ async function loadDashboard() {
 
 
 // ---------- Start ----------
+hf.sortable(monthlyBody.closest('table'));
+hf.sortable(lowStockBody.closest('table'));
 range = createRangeFilter(hf.q('#dashboard-range'), loadDashboard);
 startPage({ title: 'Dashboard', onReady: loadDashboard });

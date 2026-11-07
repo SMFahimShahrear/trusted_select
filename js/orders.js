@@ -32,8 +32,13 @@ export const isActive = (sale) => isActiveStatus(statusOf(sale));
 
 const n = (v) => Number(v) || 0;
 
+// Items total − discount (worked out from the items if the sale hasn't been saved yet)
+export const netSaleOf = (s) => (s.netSale !== undefined
+    ? n(s.netSale)
+    : (s.items || []).reduce((sum, i) => sum + n(i.qty) * n(i.unitPrice), 0) - n(s.discount));
+
 export const deliveryNetOf = (s) => n(s.deliveryCharge) - n(s.courierFee);
-export const totalDueOf = (s) => n(s.netSale) + n(s.deliveryCharge);
+export const totalDueOf = (s) => netSaleOf(s) + n(s.deliveryCharge);
 export const codOf = (s) => Math.max(totalDueOf(s) - n(s.advancePaid), 0);
 export const payoutOf = (s) => codOf(s) - n(s.courierFee);
 

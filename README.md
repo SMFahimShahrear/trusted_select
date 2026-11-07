@@ -76,10 +76,45 @@ Counters live in `Track Data` as `InvoiceCount_26`, `OrderCount_261018`, etc.
 
 ## Printing (Print page)
 
-Upload your own Word (.docx) templates for **Invoice** and **Order confirmation** (or start from the samples
-in `templates/`). Type placeholders like `{customerName}` or `{total}` where details should go; the full list
-is on the Print page. Choose an order → preview → **Print / Save as PDF** or **Download Word file**.
-Orders also have a **Print** button in the Sales list. Templates must be under 700 KB.
+Three designs, built from your own Word files (`templates/`):
+- **Invoice · 2 per page**: landscape A4, two invoices side by side (cut in half).
+- **Invoice · 1 per page**: the same invoice design on a portrait A4 page.
+- **Order confirmation**: keeps its 6-row items table, with empty rows under the items.
+
+Tick any number of orders and they print together, one design per page (or two per page).
+From the **Sales** list you can tick orders and press *Print invoices (2 per page)*, or use the **⋯** menu on one order.
+Payment boxes tick themselves: COD (cash still to collect), MFS (bKash/Nagad/Rocket), Bank (Bank/Card),
+Cash (paid in cash); Paid / Partially Paid / Unpaid from the advance and the amount due.
+
+To change a design: download it on the Print page, edit it in Word (keep the `{placeholders}`), upload it back.
+"Use built-in" returns to the original. Designs must be under 700 KB.
+In the print window pick **Save as PDF** for a PDF; set margins to **None** if asked.
+Each page always fits one sheet: if the browser draws a page slightly taller than Word (fonts differ a little),
+it is shrunk just enough to fit. On 2-per-page, the right half (and its footer) only prints when there is a second invoice.
+
+## Bangla summary & phone check
+
+The message text is editable in **Settings → Bangla order message**, with a live preview. Placeholders like `{name}`,
+`{total}` and `{due}` are filled in; lines with an empty `{discount}`, `{advance}`, `{deliveryTime}`, `{notes}` or
+`{contact}` are left out automatically. "Reset message" puts back the original.
+
+- **⋯ → বাংলা সামারি** (or the button that appears after saving a sale): a ready Bangla message with the order,
+  address, total and cash to pay. Edit if needed, then **Copy**, **Open SMS** (on a phone) or **WhatsApp**.
+- **⋯ → Verify phone (OTP)**: makes a 4-digit code and a Bangla message containing it. Send it, ask the customer to
+  reply with the code, type it in, press Verify. Or "Mark verified" after confirming by phone call.
+  Verified orders and customers show a green **✓ Verified** badge.
+  (Fully automatic SMS needs a paid SMS service plus a server, i.e. Firebase's paid Blaze plan, so this is the free, manual version.)
+
+## Sorting & export
+
+Every list has a **Sort** dropdown (e.g. *Item name A → Z*, *Stock low → high*, *Date newest first*); clicking a
+column header does the same (click again to reverse). Your choice is remembered on that computer. **Export CSV** saves what the table shows (after filters
+and search) as a file that opens in Excel, with Bangla text intact.
+
+## Backup
+
+**Settings → Download backup** saves all data (products, sales, purchases, expenses, customers, settings) as one JSON
+file. Do it every week or two and keep a copy in Google Drive. The free Firebase plan has no automatic backups.
 
 ## Blacklist
 
@@ -131,3 +166,15 @@ collection in Firestore (`ProductCount`, `SaleCount`). Don't edit those by hand 
 Firestore Spark plan: 50,000 reads and 20,000 writes per day, 1 GiB stored.
 Each record shown counts as one read, so the dashboard for "This year" reads every sale and expense of the year.
 Check usage in Firestore → Usage.
+
+## Go-live checklist
+
+1. Firebase → Authentication → **Users**: one account per person. **Settings → User actions**: turn off
+   *Enable create (sign-up)* so nobody else can make an account.
+2. Firestore → **Rules**: paste `firestore.rules` with both real emails → Publish.
+3. Authentication → Settings → **Authorized domains**: add your GitHub Pages address (e.g. `yourname.github.io`).
+4. App **Settings** page: delivery areas (customer charge, courier fee, order prefix, delivery time), COD %,
+   contact number, payment methods, categories → Save.
+5. **Customers → Rebuild from sales** once, so older sales are counted.
+6. Make one test order → print it → check the PDF → delete the test order.
+7. Download a first **backup**.
