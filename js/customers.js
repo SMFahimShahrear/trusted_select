@@ -70,6 +70,7 @@ function createCustomerRow(c) {
     nameCell.append(hf.create('strong', { text: c.name || '—' }));
     if (c.blacklisted) nameCell.append(hf.create('span', { className: 'badge badge-danger', text: 'Blacklisted' }));
     if (c.phoneVerified) nameCell.append(hf.create('span', { className: 'badge badge-ok', text: '✓ Verified' }));
+    if (c.returnCount > 0) nameCell.append(hf.create('span', { className: 'badge badge-warn', text: `↩ ${c.returnCount} returned` }));
     if (c.blacklisted && c.blacklistReason) nameCell.append(hf.create('span', { className: 'sub negative', text: c.blacklistReason }));
     if (c.address) nameCell.append(hf.create('span', { className: 'sub', text: c.address }));
 

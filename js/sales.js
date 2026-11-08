@@ -12,7 +12,7 @@ import {
 } from "./orders.js";
 import {
     addSale, updateSale, getSales, deleteSale, getProducts, getCustomer, nextTrackNumber,
-    getAllSales, hasValidDate, repairSaleDates,
+    getAllSales, hasValidDate, repairSaleDates, addExpense, deleteExpense, patchSale,
 } from "./firebase.js";
 import { openSummary, openOtp } from "./documents.js";
 
@@ -300,21 +300,132 @@ const yymmddOf = (dateStr) => dateStr.slice(2, 4) + dateStr.slice(5, 7) + dateSt
 const orderPrefixOf = (zoneName) => findZone(zoneName)?.orderPrefix ?? '';
 
 // Invoice: prefix + yy + 00001 (counter restarts each year), e.g. 2600001
-async function setInvoiceNo(invoiceNo, dateStr) {
-    if (invoiceNo) return invoiceNo;
-    if (editing && (editing.invoiceNo || editing.memoNo)) return editing.invoiceNo || editing.memoNo;
+async function newInvoiceNo(dateStr) {
     const yy = yyOf(dateStr);
     const n = await nextTrackNumber(`InvoiceCount_${yy}`, 1);
     return `${settings.sales.invoicePrefix || ''}${yy}${String(n).padStart(5, '0')}`;
 }
+async function setInvoiceNo(invoiceNo, dateStr) {
+    if (invoiceNo) return invoiceNo;
+    if (editing && (editing.invoiceNo || editing.memoNo)) return editing.invoiceNo || editing.memoNo;
+    return newInvoiceNo(dateStr);
+}
 
 // Order: area prefix + yymmdd + 00001 (counter restarts each day), e.g. OD26101800001
-async function setOrderNo(orderNo, dateStr, zoneName) {
-    if (orderNo) return orderNo;
-    if (editing?.orderNo) return editing.orderNo;
+async function newOrderNo(dateStr, zoneName) {
     const ymd = yymmddOf(dateStr);
     const n = await nextTrackNumber(`OrderCount_${ymd}`, 1);
     return `${orderPrefixOf(zoneName)}${ymd}${String(n).padStart(5, '0')}`;
+}
+async function setOrderNo(orderNo, dateStr, zoneName) {
+    if (orderNo) return orderNo;
+    if (editing?.orderNo) return editing.orderNo;
+    return newOrderNo(dateStr, zoneName);
+}
+
+// When an order's date (or delivery area) is edited, its numbers may no longer match.
+// Asks whether to give it new numbers. Resolves to { invoice: bool, order: bool }, or null to cancel saving.
+async function askRenumber(old, sale) {
+    const oldDate = hf.toInputDate(hf.toDate(old.date));
+    const dateChanged = oldDate !== sale.date;
+    const keptInvoice = sale.invoiceNo === (old.invoiceNo || old.memoNo || '');   // not typed by hand
+    const keptOrder = sale.orderNo === (old.orderNo || '');
+
+    const inv = (sale.invoiceNo || '').match(/^(\D*)(\d{2})(\d{5})$/);
+    const invoiceWrong = keptInvoice && sale.invoiceNo && dateChanged && (!inv || inv[2] !== yyOf(sale.date));
+    const ord = (sale.orderNo || '').match(/^([A-Z]*)(\d{6})(\d{5})$/);
+    const orderWrong = keptOrder && sale.orderNo && (
+        (dateChanged && (!ord || ord[2] !== yymmddOf(sale.date))) ||
+        (ord && ord[1] !== orderPrefixOf(sale.deliveryZone))
+    );
+    if (!invoiceWrong && !orderWrong) return { invoice: false, order: false };
+
+    const body = hf.create('div', { className: 'stack' });
+    body.append(hf.create('p', {
+        text: dateChanged
+            ? `You changed the date from ${hf.date(oldDate)} to ${hf.date(sale.date)}.`
+            : `You changed the delivery area to ${sale.deliveryZone}.`,
+    }));
+    const list = hf.create('ul', { className: 'renumber-list' });
+    if (invoiceWrong) {
+        list.append(hf.create('li', {
+            text: `Invoice ${sale.invoiceNo} → new number for 20${yyOf(sale.date)} (${settings.sales.invoicePrefix || ''}${yyOf(sale.date)}#####)`,
+        }));
+    }
+    if (orderWrong) {
+        list.append(hf.create('li', {
+            text: `Order ${sale.orderNo} → new number for ${hf.date(sale.date)} (${orderPrefixOf(sale.deliveryZone)}${yymmddOf(sale.date)}#####)`,
+        }));
+    }
+    body.append(hf.create('p', { text: 'Update the numbers to match?' }), list);
+    body.append(hf.create('p', { className: 'hint', text: 'Choose "Keep numbers" if you have already printed or sent this invoice.' }));
+    const answer = await hf.choose({
+        title: 'Update invoice / order number?',
+        body,
+        buttons: [
+            { label: 'Keep numbers', value: 'keep' },
+            { label: 'Update numbers', value: 'update', variant: 'primary' },
+        ],
+    });
+    if (answer === null) return null;
+    return { invoice: answer === 'update' && invoiceWrong, order: answer === 'update' && orderWrong };
+}
+
+// ----- Returns -----
+// The items go back into stock, the order and the customer stay saved, and the delivery charge
+// can be recorded as an expense: "Delivery charge – returned order (2600003)".
+const deliveryCategory = () => settings.expenses.categories.find((c) => /deliver|courier/i.test(c)) || 'Delivery';
+const invoiceOf = (sale) => sale.invoiceNo || sale.memoNo || '';
+
+// Resolves to { expense: amount } (0 = don't add one), or null if cancelled
+async function askReturn(sale) {
+    const body = hf.create('div', { className: 'stack' });
+    body.append(
+        hf.create('p', { text: `Invoice ${invoiceOf(sale)} · ${sale.customerName || ''} · ${sale.customerPhone || ''}` }),
+        hf.create('p', { className: 'hint', text: 'The items go back into stock. The order and the customer stay saved; the order just stops counting as a sale.' }),
+    );
+    const check = hf.create('label', { className: 'checkbox' });
+    const box = hf.create('input', { attrs: { type: 'checkbox', checked: '' } });
+    check.append(box, document.createTextNode(` Add the delivery charge to expenses (${deliveryCategory()})`));
+    const field = hf.create('div', { className: 'form-field' });
+    const amount = hf.create('input', { attrs: { type: 'number', min: '0', step: '1', id: 'return-delivery-amount' } });
+    amount.value = sale.deliveryCharge || sale.courierFee || 0;
+    field.append(hf.create('label', { text: 'Amount (Tk)', attrs: { for: 'return-delivery-amount' } }), amount);
+    const note = hf.create('p', { className: 'hint', text: `Saved as: "Delivery charge – returned order (${invoiceOf(sale)})"` });
+    hf.on(box, 'change', () => { amount.disabled = !box.checked; note.hidden = !box.checked; });
+    body.append(check, field, note);
+
+    const answer = await hf.choose({
+        title: 'Mark as returned',
+        body,
+        buttons: [
+            { label: 'Cancel', value: null },
+            { label: 'Mark as returned', value: 'ok', variant: 'primary' },
+        ],
+    });
+    if (answer !== 'ok') return null;
+    return { expense: box.checked ? Math.max(0, hf.num(amount.value)) : 0 };
+}
+
+// Add the return's delivery expense and remember it on the order
+async function addReturnExpense(sale, amount) {
+    if (!amount) return;
+    const id = await addExpense({
+        date: hf.today(),
+        category: deliveryCategory(),
+        details: `Delivery charge – returned order (${invoiceOf(sale)})`,
+        amount,
+        paidBy: settings.expenses.paidBy[0] || 'Cash',
+    });
+    await patchSale(sale.id, { returnExpenseId: id });
+}
+
+// Reopening a returned order: offer to remove the delivery expense added for it
+async function maybeRemoveReturnExpense(sale) {
+    if (!sale.returnExpenseId) return false;
+    if (!confirm(`Also remove the delivery expense that was added when invoice ${invoiceOf(sale)} was returned?`)) return false;
+    await deleteExpense(sale.returnExpenseId);
+    return true;
 }
 
 // Show what the numbers will look like in the empty boxes
@@ -474,7 +585,11 @@ async function changeStatus(sale, newStatus, select) {
     const goingInactive = isActiveStatus(oldStatus) && !isActiveStatus(newStatus);
     const comingBack = !isActiveStatus(oldStatus) && isActiveStatus(newStatus);
 
-    if (goingInactive && !confirm(`Mark invoice ${sale.invoiceNo || sale.memoNo || ''} as ${statusLabel(newStatus)}?\n\nIts items go back into stock and it stops counting as a sale.`)) {
+    let returnInfo = null;
+    if (goingInactive && newStatus === 'returned') {
+        returnInfo = await askReturn(sale);
+        if (!returnInfo) { select.value = oldStatus; return; }
+    } else if (goingInactive && !confirm(`Mark invoice ${invoiceOf(sale)} as ${statusLabel(newStatus)}?\n\nIts items go back into stock and it stops counting as a sale.`)) {
         select.value = oldStatus;
         return;
     }
@@ -491,8 +606,11 @@ async function changeStatus(sale, newStatus, select) {
 
     select.disabled = true;
     try {
-        await updateSale(sale, { ...sale, status: newStatus });
-        hf.message(message, `Invoice ${sale.invoiceNo || sale.memoNo || ''}: ${statusLabel(newStatus)} ✓`);
+        const changes = { ...sale, status: newStatus };
+        if (oldStatus === 'returned' && await maybeRemoveReturnExpense(sale)) changes.returnExpenseId = null;
+        await updateSale(sale, changes);
+        if (returnInfo?.expense) await addReturnExpense(sale, returnInfo.expense);
+        hf.message(message, `Invoice ${invoiceOf(sale)}: ${statusLabel(newStatus)} ✓${returnInfo?.expense ? ` · delivery charge ${hf.money(returnInfo.expense)} added to expenses` : ''}`);
         products = await getProducts();
         if (!editing) resetSaleForm();
         await loadSales();
@@ -782,14 +900,35 @@ hf.on(saleForm, 'submit', async (event) => {
             hf.busy(submitBtn, false);
             return;
         }
+        let returnInfo = null;
+        let removedReturnExpense = false;
+        if (editing) {
+            // Numbers no longer match the new date / area?
+            sale.invoiceNo = sale.invoiceNo || invoiceOf(editing);
+            sale.orderNo = sale.orderNo || editing.orderNo || '';
+            const renumber = await askRenumber(editing, sale);
+            if (!renumber) { hf.busy(submitBtn, false); return; }
+            if (renumber.invoice) sale.invoiceNo = await newInvoiceNo(sale.date);
+            if (renumber.order) sale.orderNo = await newOrderNo(sale.date, sale.deliveryZone);
+            // Being marked as returned here?
+            const oldStatus = statusOf(editing);
+            if (sale.status === 'returned' && isActiveStatus(oldStatus)) {
+                returnInfo = await askReturn({ ...editing, ...sale });
+                if (!returnInfo) { hf.busy(submitBtn, false); return; }
+            }
+            if (oldStatus === 'returned' && sale.status !== 'returned') removedReturnExpense = await maybeRemoveReturnExpense(editing);
+        }
         sale.invoiceNo = await setInvoiceNo(sale.invoiceNo, sale.date);
         sale.orderNo = await setOrderNo(sale.orderNo, sale.date, sale.deliveryZone);
         if (editing) {
             for (const key of ['phoneVerified', 'verifiedAt', 'verifiedBy', 'otpCode', 'otpCreatedAt']) {
                 if (editing[key] !== undefined && sale.customerPhone === editing.customerPhone) sale[key] = editing[key];
             }
+            if (editing.returnExpenseId && !removedReturnExpense) sale.returnExpenseId = editing.returnExpenseId;
+            const saved = { ...editing };
             await updateSale(editing, sale);
-            hf.message(message, `Invoice ${sale.invoiceNo} updated ✓`);
+            if (returnInfo?.expense) await addReturnExpense({ ...saved, ...sale, id: saved.id }, returnInfo.expense);
+            hf.message(message, `Invoice ${sale.invoiceNo} updated ✓${returnInfo?.expense ? ` · delivery charge ${hf.money(returnInfo.expense)} added to expenses` : ''}`);
         } else {
             await addSale(sale);
             hf.message(message, `Invoice ${sale.invoiceNo} · Order ${sale.orderNo} for ${sale.customerName} saved ✓`, 'success', 12);

@@ -169,17 +169,13 @@ export async function getCustomerSales(phone) {
 }
 
 // Change a customer's totals inside a batch.
-// ordersDelta / spentDelta can be negative. info = the sale (for name, address...), or null.
-async function applyCustomer(batch, phone, ordersDelta, spentDelta, info, saleDate) {
+// ordersDelta / spentDelta / returnsDelta can be negative. info = the sale (for name, address...), or null.
+// A customer record is never deleted here: returned or deleted orders only change the counts.
+async function applyCustomer(batch, phone, ordersDelta, spentDelta, info, saleDate, returnsDelta = 0) {
     if (!phone) return;
     const ref = doc(db, "customers", phone);
     const prev = (await getDoc(ref)).data();
-    const newCount = (prev?.orderCount || 0) + ordersDelta;
-
-    if (newCount <= 0 && !prev?.blacklisted) {   // no active orders left
-        if (prev) batch.delete(ref);
-        return;
-    }
+    if (!prev && ordersDelta <= 0 && returnsDelta <= 0 && !info) return;   // nothing to record
 
     const data = {
         phone,
@@ -187,6 +183,7 @@ async function applyCustomer(batch, phone, ordersDelta, spentDelta, info, saleDa
         totalSpent: increment(spentDelta),
         updatedAt: serverTimestamp(),
     };
+    if (returnsDelta) data.returnCount = increment(returnsDelta);
     if (info) {
         data.name = info.customerName || prev?.name || '';
         data.address = info.customerAddress || prev?.address || '';
@@ -210,15 +207,17 @@ export async function rebuildCustomers() {
 
     const byPhone = {};
     for (const s of sales.sort((a, b) => millis(a.date) - millis(b.date))) {   // oldest → newest
-        if (!s.customerPhone || !isActive(s)) continue;
+        if (!s.customerPhone) continue;
         const c = byPhone[s.customerPhone] ??= {
-            phone: s.customerPhone, orderCount: 0, totalSpent: 0,
+            phone: s.customerPhone, orderCount: 0, totalSpent: 0, returnCount: 0,
             firstOrderDate: s.date, lastOrderDate: s.date,
         };
         c.name = s.customerName || c.name || '';
         c.address = s.customerAddress || c.address || '';
         c.email = s.customerEmail || c.email || '';
         c.deliveryZone = s.deliveryZone || c.deliveryZone || '';
+        if (s.status === 'returned') c.returnCount += 1;
+        if (!isActive(s)) continue;          // returned / cancelled: customer kept, not counted as an order
         c.orderCount += 1;
         c.totalSpent += Number(s.netSale) || 0;
         c.lastOrderDate = s.date;
@@ -229,7 +228,7 @@ export async function rebuildCustomers() {
         ? { blacklisted: true, blacklistReason: c.blacklistReason || '', blacklistedAt: c.blacklistedAt || null }
         : {});
     for (const c of customers) {
-        if (byPhone[c.id]) Object.assign(byPhone[c.id], keepBlacklist(c));
+        if (byPhone[c.id]) Object.assign(byPhone[c.id], keepBlacklist(c), c.phoneVerified ? { phoneVerified: true } : {});
     }
 
     // Firestore batches hold max 500 writes, so write in chunks
@@ -351,16 +350,18 @@ export async function updateSale(old, changes) {
         if (qty !== 0) await adjustStockIfExists(batch, productId, qty);
     }
 
-    // Customer totals
+    // Customer totals (returns are counted separately; the customer record always stays)
     const oldOrders = oldActive ? 1 : 0;
     const oldSpent = oldActive ? Number(old.netSale) || 0 : 0;
     const newOrders = newActive ? 1 : 0;
     const newSpent = newActive ? t.netSale : 0;
+    const oldReturn = oldStatus === 'returned' ? 1 : 0;
+    const newReturn = status === 'returned' ? 1 : 0;
     if (old.customerPhone && old.customerPhone === s.customerPhone) {
-        await applyCustomer(batch, s.customerPhone, newOrders - oldOrders, newSpent - oldSpent, s, newActive ? saleDate : null);
+        await applyCustomer(batch, s.customerPhone, newOrders - oldOrders, newSpent - oldSpent, s, newActive ? saleDate : null, newReturn - oldReturn);
     } else {
-        await applyCustomer(batch, old.customerPhone, -oldOrders, -oldSpent, null, null);
-        await applyCustomer(batch, s.customerPhone, newOrders, newSpent, s, newActive ? saleDate : null);
+        await applyCustomer(batch, old.customerPhone, -oldOrders, -oldSpent, null, null, -oldReturn);
+        await applyCustomer(batch, s.customerPhone, newOrders, newSpent, s, newActive ? saleDate : null, newReturn);
     }
 
     await batch.commit();
@@ -391,6 +392,8 @@ export async function deleteSale(s) {
             await adjustStockIfExists(batch, i.productId, Number(i.qty));
         }
         await applyCustomer(batch, s.customerPhone, -1, -(Number(s.netSale) || 0), null, null);
+    } else if (s.status === 'returned') {
+        await applyCustomer(batch, s.customerPhone, 0, 0, null, null, -1);
     }
     await batch.commit();
 }
@@ -457,11 +460,12 @@ export async function getBackup() {
 
 
 // ---------- Expenses ----------
-export function addExpense(e) {
-    // e = { date, category, details, amount, paidBy }
-    return addDoc(collection(db, "expenses"), {
+export async function addExpense(e) {
+    // e = { date, category, details, amount, paidBy }  → returns the new expense's id
+    const ref = await addDoc(collection(db, "expenses"), {
         ...e, amount: Number(e.amount), date: toTimestamp(e.date), createdAt: serverTimestamp(),
     });
+    return ref.id;
 }
 export const getExpenses = (from, to) => listByDate("expenses", from, to);
 export const deleteExpense = (id) => deleteDoc(doc(db, "expenses", id));

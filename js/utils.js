@@ -375,6 +375,23 @@ export const hf = {
         return { close: done, box };
     },
 
+    // ---------- Pop-up with choices ----------
+    // const answer = await hf.choose({ title, body, buttons: [{ label: 'Yes', value: 'yes', variant: 'primary' }, ...] })
+    // Resolves to the chosen value, or null if closed.
+    choose: ({ title, body, buttons, wide = false }) => new Promise((resolve) => {
+        let answered = false;
+        const actions = buttons.map((b) => {
+            const btn = hf.create('button', { className: `btn btn-${b.variant || 'ghost'}`, text: b.label, attrs: { type: 'button' } });
+            btn.addEventListener('click', () => { answered = true; m.close(); resolve(b.value); });
+            return btn;
+        });
+        const m = hf.modal({ title, body, actions, wide });
+        const observer = new MutationObserver(() => {
+            if (!document.body.contains(m.box)) { observer.disconnect(); if (!answered) resolve(null); }
+        });
+        observer.observe(document.body, { childList: true });
+    }),
+
     // ---------- Row menu (⋯) ----------
     // hf.menuButton([{ label: 'Print', onClick }, { label: 'Delete', onClick, danger: true }])
     menuButton: (items) => {

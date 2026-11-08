@@ -43,6 +43,20 @@ function resetForm() {
     dateInput.value = hf.today();
 }
 
+// Fill the form with an existing expense (dated today) so a similar one can be saved quickly
+function copyExpense(e) {
+    resetForm();
+    for (const [select, value] of [[categorySelect, e.category], [paidBySelect, e.paidBy]]) {
+        if (value && ![...select.options].some((o) => o.value === value)) select.add(new Option(value, value));
+        if (value) select.value = value;
+    }
+    hf.q('#expense-details').value = e.details || '';
+    hf.q('#expense-amount').value = e.amount ?? '';
+    expenseForm.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    hf.q('#expense-amount').focus({ preventScroll: true });
+    hf.message(message, 'Copied into the form (dated today). Change anything you need, then press Save expense.', 'success', 8);
+}
+
 async function removeExpense(expense) {
     const ok = confirm(`Delete this ${expense.category} expense of ${hf.money(expense.amount)}?`);
     if (!ok) return;
@@ -61,7 +75,10 @@ function createExpenseRow(e) {
     categoryCell.append(hf.create('span', { className: 'badge badge-neutral', text: e.category }));
 
     const actions = hf.create('td', { className: 'actions' });
-    actions.append(hf.rowButton('Delete', 'danger', () => removeExpense(e)));
+    actions.append(
+        hf.rowButton('Copy', 'ghost', () => copyExpense(e)),
+        hf.rowButton('Delete', 'danger', () => removeExpense(e)),
+    );
 
     const row = hf.create('tr');
     row.append(

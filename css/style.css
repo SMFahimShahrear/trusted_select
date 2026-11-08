@@ -1439,6 +1439,15 @@ input[type="search"] {
     align-self: flex-start;
 }
 
+.renumber-list {
+    margin: 0;
+    padding-left: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-weight: 600;
+}
+
 .otp-code {
     font-size: 34px;
     font-weight: 700;
@@ -1461,6 +1470,12 @@ input[type="search"] {
     font-size: 18px;
     letter-spacing: 0.2em;
     text-align: center;
+}
+
+.badge-warn {
+    color: var(--warning);
+    background: var(--warning-soft);
+    margin-left: 6px;
 }
 
 .badge-ok {

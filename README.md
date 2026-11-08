@@ -44,7 +44,11 @@ trusted-select/
 
 Pending → Packaged → Handed to courier → Courier collected → Courier paid.
 Change it from the dropdown in the Orders list, or by editing the order.
-**Returned** and **Cancelled** put the items back into stock and stop the order counting as a sale
+**Returned** and **Cancelled** put the items back into stock and stop the order counting as a sale.
+The order (invoice) and the customer are always kept. When marking **Returned**, a window offers to add the
+delivery charge to Expenses (category *Delivery / Courier*, details "Delivery charge – returned order (invoice no)");
+the amount can be changed or the box unticked. Reopening a returned order offers to remove that expense again.
+Customers show "↩ N returned"
 (switch back and the stock is taken again). Sales saved before statuses existed count as "Courier paid".
 
 ## Delivery & courier money
@@ -61,6 +65,10 @@ On every order:
 "Courier owes you" (dashboard and orders list) adds up orders that are *Handed to courier* or *Courier collected*.
 
 ## Editing orders
+
+If you change an order's **date** (or its delivery area), saving asks whether to give it new numbers to match:
+the order number follows the date (and area prefix), the invoice number follows the year. Choose *Keep numbers*
+if the invoice was already printed or sent.
 
 Click **Edit** on an order. Saving works out the stock difference (e.g. 2 → 1 puts one back),
 updates the customer's totals, and keeps the original product cost so past profit doesn't change.
@@ -121,6 +129,11 @@ file. Do it every week or two and keep a copy in Google Drive. The free Firebase
 On the Customers page, open a customer and click **Blacklist** (with a reason), or add any number with
 "Blacklist a number". When that number is typed on the sale form, a red warning shows and saving asks
 for confirmation. Remove it the same way.
+
+## Expenses
+
+**Copy** on any expense fills the form with the same category, details, amount and "paid by", dated today.
+Change what's different and save.
 
 ## Sales not showing?
 
