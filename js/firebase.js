@@ -142,6 +142,23 @@ export async function addPurchase(p) {
 }
 export const getPurchases = (from, to) => listByDate("purchases", from, to);
 
+// Save changes to a purchase. Stock moves by the difference
+// (e.g. qty 10 → 12 adds 2; a different product moves the qty from the old product to the new one).
+export async function updatePurchase(old, p) {
+    const batch = writeBatch(db);
+    batch.set(doc(db, "purchases", old.id), {
+        ...p, qty: Number(p.qty), unitCost: Number(p.unitCost),
+        date: toTimestamp(p.date), createdAt: old.createdAt || serverTimestamp(), updatedAt: serverTimestamp(),
+    });
+    const change = {};
+    change[old.productId] = (change[old.productId] || 0) - Number(old.qty);
+    change[p.productId] = (change[p.productId] || 0) + Number(p.qty);
+    for (const [productId, qty] of Object.entries(change)) {
+        if (qty) await adjustStockIfExists(batch, productId, qty);
+    }
+    await batch.commit();
+}
+
 // Delete a purchase and take its qty back out of stock.
 export async function deletePurchase(p) {
     const batch = writeBatch(db);

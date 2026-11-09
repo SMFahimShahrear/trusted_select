@@ -22,6 +22,7 @@ const categorySelect = hf.q('#category');
 const unitSelect = hf.q('#unit');
 const openingStockInput = hf.q('#opening-stock');
 const openingStockHint = hf.q('.opening-stock-hint');
+const stockLabel = hf.q('label[for="opening-stock"]');
 const lowStockInput = hf.q('#low-stock-alert');
 const searchInput = hf.q('#product-search');
 const statusFilter = hf.q('#status-filter');
@@ -80,7 +81,8 @@ function resetForm() {
     fillDropdowns();
     unitSelect.value = settings.products?.defaultUnit || 'pcs';
     lowStockInput.value = settings.products?.defaultLowStockAlert ?? 2;
-    openingStockInput.disabled = false;
+    stockLabel.textContent = 'Opening Stock';
+    openingStockInput.min = '0';
     hf.hide(openingStockHint);
     hf.hide(cancelEditBtn);
     hf.hide(deleteBtn);
@@ -103,10 +105,12 @@ function startEdit(product) {
     unitSelect.value = product.unit || '';
     hf.q('#cost-price').value = product.costPrice ?? '';
     hf.q('#selling-price').value = product.sellingPrice ?? '';
-    openingStockInput.value = product.openingStock ?? 0;
     lowStockInput.value = product.lowStockAlert ?? 0;
 
-    openingStockInput.disabled = true;   // stock only changes through purchases & sales
+    // When editing, this box shows the CURRENT stock, so it can be corrected (e.g. after counting)
+    stockLabel.textContent = 'Current Stock';
+    openingStockInput.value = product.currentStock ?? 0;
+    openingStockInput.min = '';                 // allow fixing a negative stock too
     hf.show(openingStockHint);
     hf.show(cancelEditBtn);
     hf.show(deleteBtn);
@@ -231,9 +235,13 @@ hf.on(productForm, 'submit', async (event) => {
         if (editingId) {
             if (!product.itemCode) throw new Error('Item code cannot be empty when editing.');
             checkCodeIsFree(product.itemCode);
-            const { openingStock, ...changes } = product;   // opening stock isn't changed on edit
+            const { openingStock: newStock, ...changes } = product;   // the box holds the current stock when editing
+            const before = products.find((p) => p.id === editingId)?.currentStock ?? 0;
+            if (newStock !== before) changes.currentStock = newStock;
             await updateProduct(editingId, changes);
-            hf.message(message, `${product.name} updated ✓`);
+            hf.message(message, newStock !== before
+                ? `${product.name} updated ✓ · stock changed from ${before} to ${newStock}`
+                : `${product.name} updated ✓`);
         } else {
             if (product.itemCode) checkCodeIsFree(product.itemCode);
             product.itemCode = await setItemCode(product.itemCode);   // wait for the code first

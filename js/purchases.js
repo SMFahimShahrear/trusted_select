@@ -6,7 +6,7 @@
 import { hf } from "./utils.js";
 import { startPage, createRangeFilter } from "./layout.js";
 import {
-    addPurchase, getPurchases, deletePurchase, getProducts, updateProduct,
+    addPurchase, updatePurchase, getPurchases, deletePurchase, getProducts, updateProduct,
 } from "./firebase.js";
 
 
@@ -22,10 +22,13 @@ const updateCostBox = hf.q('#update-cost');
 const totalText = hf.q('.purchase-total');
 const summary = hf.q('#purchase-summary');
 const tableBody = hf.q('#purchase-table-body');
+const formTitle = hf.q('#purchase-form-title');
+const cancelEditBtn = hf.q('.cancel-edit-btn');
 
 const COLUMNS = 8;
 let products = [];
 let range;   // date-range filter, set up on start
+let editing = null;   // the purchase being edited, or null when adding a new one
 
 
 // ---------- Functions ----------
@@ -54,8 +57,8 @@ function readPurchaseForm() {
     return {
         date: data.date,
         productId: product.id,
-        itemCode: product.itemCode,
-        itemName: product.name,
+        itemCode: product.itemCode || '',
+        itemName: product.deleted && editing ? editing.itemName : product.name,
         qty: hf.num(data.qty),
         unitCost: hf.num(data.unitCost),
         supplier: data.supplier.trim(),
@@ -64,10 +67,36 @@ function readPurchaseForm() {
 }
 
 function resetForm() {
+    editing = null;
+    products = products.filter((p) => !p.deleted);
     purchaseForm.reset();
     dateInput.value = hf.today();
     fillProductSelect();
     updateTotal();
+    formTitle.textContent = 'Record stock arriving';
+    submitBtn.textContent = 'Save purchase';
+    hf.hide(cancelEditBtn);
+}
+
+// Load a purchase into the form to change it
+function startEdit(p) {
+    resetForm();
+    editing = p;
+    if (!findProduct(p.productId)) {        // product deleted since: keep it selectable
+        products.push({ id: p.productId, name: `${p.itemName} (deleted)`, itemCode: p.itemCode, currentStock: 0, deleted: true });
+        fillProductSelect();
+    }
+    dateInput.value = hf.toInputDate(hf.toDate(p.date));
+    productSelect.value = p.productId;
+    qtyInput.value = p.qty;
+    costInput.value = p.unitCost;
+    hf.q('#supplier').value = p.supplier || '';
+    hf.q('#note').value = p.note || '';
+    updateTotal();
+    formTitle.textContent = `Edit purchase: ${p.qty} × ${p.itemName}`;
+    submitBtn.textContent = 'Save changes';
+    hf.show(cancelEditBtn);
+    purchaseForm.closest('.card').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
 
 async function removePurchase(purchase) {
@@ -93,7 +122,10 @@ function createPurchaseRow(p) {
     if (p.itemCode) productCell.append(hf.create('span', { className: 'sub code', text: p.itemCode }));
 
     const actions = hf.create('td', { className: 'actions' });
-    actions.append(hf.rowButton('Delete', 'danger', () => removePurchase(p)));
+    actions.append(
+        hf.rowButton('Edit', 'ghost', () => startEdit(p)),
+        hf.rowButton('Delete', 'danger', () => removePurchase(p)),
+    );
 
     const row = hf.create('tr');
     row.append(
@@ -154,22 +186,32 @@ hf.on(purchaseForm, 'submit', async (event) => {
     hf.busy(submitBtn, true);
     try {
         const purchase = readPurchaseForm();
-        await addPurchase(purchase);                     // saves + raises stock
+        if (editing) {
+            await updatePurchase(editing, purchase);     // saves + moves stock by the difference
+            const diff = purchase.productId === editing.productId ? purchase.qty - editing.qty : null;
+            hf.message(message, diff === null
+                ? `Purchase updated ✓ · stock moved from ${editing.itemName} to ${purchase.itemName}`
+                : `Purchase updated ✓${diff ? ` · stock ${diff > 0 ? '+' : ''}${diff}` : ''}`);
+        } else {
+            await addPurchase(purchase);                 // saves + raises stock
+            hf.message(message, `${purchase.qty} × ${purchase.itemName} added to stock ✓`);
+        }
         if (updateCostBox.checked) {
             await updateProduct(purchase.productId, { costPrice: purchase.unitCost });
         }
-        hf.message(message, `${purchase.qty} × ${purchase.itemName} added to stock ✓`);
 
+        hf.busy(submitBtn, false);
         products = await getProducts();                  // refresh stock numbers
         resetForm();
         await loadPurchases();
     } catch (error) {
         console.error(error);
         hf.message(message, `Could not save: ${error.message}`, 'error', 0);
-    } finally {
         hf.busy(submitBtn, false);
     }
 });
+
+hf.on(cancelEditBtn, 'click', resetForm);
 
 
 // ---------- Start ----------
