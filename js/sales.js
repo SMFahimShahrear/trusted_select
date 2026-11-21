@@ -111,6 +111,8 @@ function available(productId) {
 }
 
 const findZone = (name) => settings.sales.deliveryZones.find((z) => z.name === name);
+// Courier's COD charge: pct % of the cash they collect, always rounded up
+const codChargeOf = (cod, pct) => Math.ceil((Math.max(cod, 0) * hf.num(pct)) / 100);
 
 
 // ---------- Item rows ----------
@@ -222,19 +224,20 @@ function updateTotals() {
     bill.feeLabel.textContent = self ? 'Delivery expense' : 'Courier fee';
     bill.payoutLabel.textContent = self ? 'You keep' : 'Courier pays you';
 
-    // Courier fee (courier keeps)
+    // Courier fee (courier keeps) = the fee in the box + COD % on top (also when typed by hand)
+    let fee;
     if (self) {
         if (!feeByHand) feeInput.value = hf.num(settings.sales.selfDeliveryCost);
         feeHint.textContent = feeByHand ? 'Your own cost for this delivery · no courier charge' : 'Your own cost (rider, fuel…) · default from Settings';
-    } else if (!feeByHand) {
-        const pct = hf.num(codPercentInput.value);
-        const codCharge = Math.ceil((cod * pct) / 100);   // always rounded up
-        feeInput.value = (zone ? zone.courierFee : 0) + codCharge;
-        feeHint.textContent = pct ? `${zone?.name || ''} fee + ${pct}% COD (${hf.money(codCharge)})` : `${zone?.name || 'Courier'} fee`;
+        fee = hf.num(feeInput.value);
     } else {
-        feeHint.textContent = 'Typed by hand · pick the area again to reset';
+        if (!feeByHand) feeInput.value = zone ? zone.courierFee : 0;
+        const pct = hf.num(codPercentInput.value);
+        const codCharge = codChargeOf(cod, pct);
+        fee = hf.num(feeInput.value) + codCharge;
+        const source = feeByHand ? 'Typed by hand' : `${zone?.name || 'Courier'} fee`;
+        feeHint.textContent = pct ? `${source} + ${pct}% COD (${hf.money(codCharge)}) = ${hf.money(fee)}` : source;
     }
-    const fee = hf.num(feeInput.value);
     const profit = isActiveStatus(statusSelect.value) ? netSale - cost + delivery - fee : 0;
 
     bill.subtotal.textContent = hf.money(gross);
@@ -287,6 +290,8 @@ function readSaleForm() {
     const gross = items.reduce((s, i) => s + i.qty * i.unitPrice, 0);
     const discount = hf.num(data.discount);
     if (discount > gross) throw new Error('Discount is more than the items total.');
+    const self = data.deliveryMethod === 'self';
+    const cod = gross - discount + hf.num(data.deliveryCharge) - hf.num(data.advancePaid);
 
     return {
         date: data.date,
@@ -299,9 +304,11 @@ function readSaleForm() {
         customerAddress: (data.customerAddress || '').trim(),
         deliveryZone: data.deliveryZone || '',
         deliveryCharge: hf.num(data.deliveryCharge),
-        courierFee: hf.num(data.courierFee),      // self-delivery: your own delivery expense
-        deliveryMethod: data.deliveryMethod === 'self' ? 'self' : 'courier',
-        codChargePercent: data.deliveryMethod === 'self' ? 0 : hf.num(data.codChargePercent),
+        // Courier: courierFee = base fee + COD % charge.  Self-delivery: your own delivery expense
+        courierFee: self ? hf.num(data.courierFee) : hf.num(data.courierFee) + codChargeOf(cod, data.codChargePercent),
+        courierBaseFee: hf.num(data.courierFee),
+        deliveryMethod: self ? 'self' : 'courier',
+        codChargePercent: self ? 0 : hf.num(data.codChargePercent),
         advancePaid: hf.num(data.advancePaid),
         trxId: (data.trxId || '').trim(),
         notes: (data.notes || '').trim(),
@@ -576,7 +583,7 @@ function startEdit(sale) {
     fillZones(sale.deliveryZone);
     if (sale.deliveryZone) zoneSelect.value = sale.deliveryZone;
     deliveryInput.value = sale.deliveryCharge || 0;
-    feeInput.value = sale.courierFee || 0;
+    feeInput.value = (isSelf(sale) ? sale.courierFee : sale.courierBaseFee ?? sale.courierFee) || 0;
     deliveryByHand = true;      // keep the saved amounts until the area is changed
     feeByHand = true;
     discountInput.value = sale.discount || 0;
