@@ -22,6 +22,7 @@ const defaultZoneSelect = hf.q('#default-zone');
 const freeDeliveryInput = hf.q('#free-delivery-over');
 const codChargeInput = hf.q('#cod-charge');
 const contactPhoneInput = hf.q('#contact-phone');
+const selfCostInput = hf.q('#self-delivery-cost');
 const backupBtn = hf.q('.backup-btn');
 const summaryInput = hf.q('#summary-template');
 const summaryPreview = hf.q('#summary-preview');
@@ -117,6 +118,7 @@ function fillForm(s) {
     freeDeliveryInput.value = s.sales.freeDeliveryOver ?? 0;
     codChargeInput.value = s.sales.codChargePercent ?? 0;
     contactPhoneInput.value = s.sales.contactPhone || '';
+    selfCostInput.value = s.sales.selfDeliveryCost ?? 0;
     summaryInput.value = s.sales.summaryTemplate?.trim() ? s.sales.summaryTemplate : DEFAULT_SUMMARY;
     showSummaryPreview();
 
@@ -170,6 +172,7 @@ function readForm() {
             freeDeliveryOver: hf.num(freeDeliveryInput.value),
             codChargePercent: hf.num(codChargeInput.value),
             contactPhone: hf.phone(contactPhoneInput.value),
+            selfDeliveryCost: hf.num(selfCostInput.value),
             summaryTemplate: summaryInput.value.trim() === DEFAULT_SUMMARY.trim() ? '' : summaryInput.value,
         },
         expenses: {

@@ -8,7 +8,7 @@ import { startPage, createRangeFilter } from "./layout.js";
 import { loadSettings, DEFAULT_SETTINGS } from "./app-settings.js";
 import {
     STATUSES, statusOf, statusLabel, isActive, isActiveStatus, fillStatusSelect,
-    profitOf, totalDueOf, courierOwesOf, deliveryNetOf, toShip,
+    profitOf, totalDueOf, courierOwesOf, deliveryNetOf, toShip, isSelf, selfCashDueOf,
 } from "./orders.js";
 import {
     addSale, updateSale, getSales, deleteSale, getProducts, getCustomer, nextTrackNumber,
@@ -44,6 +44,8 @@ const deliveryInput = hf.q('#delivery-charge');
 const deliveryHint = hf.q('.delivery-hint');
 const feeInput = hf.q('#courier-fee');
 const feeHint = hf.q('.courier-hint');
+const feeLabel = hf.q('.fee-label');
+const methodSelect = hf.q('#delivery-method');
 const discountInput = hf.q('#discount');
 const paymentSelect = hf.q('#payment');
 const advanceInput = hf.q('#advance-paid');
@@ -58,6 +60,7 @@ const bill = {
     subtotal: hf.q('#bill-subtotal'), discount: hf.q('#bill-discount'), delivery: hf.q('#bill-delivery'),
     total: hf.q('#sale-total'), advance: hf.q('#bill-advance'), cod: hf.q('#bill-cod'),
     fee: hf.q('#bill-fee'), payout: hf.q('#bill-payout'), profit: hf.q('#bill-profit'),
+    codLabel: hf.q('#bill-cod-label'), feeLabel: hf.q('#bill-fee-label'), payoutLabel: hf.q('#bill-payout-label'),
 };
 
 const statusFilter = hf.q('#status-filter');
@@ -209,8 +212,18 @@ function updateTotals() {
     const totalDue = netSale + delivery;
     const cod = Math.max(totalDue - advance, 0);
 
+    // Self-delivery: no courier, the fee box holds your own delivery expense
+    const self = methodSelect.value === 'self';
+    feeLabel.textContent = self ? 'Delivery Expense (Tk)' : 'Courier Fee (Tk)';
+    bill.codLabel.textContent = self ? 'You collect (cash)' : 'Courier collects (COD)';
+    bill.feeLabel.textContent = self ? 'Delivery expense' : 'Courier fee';
+    bill.payoutLabel.textContent = self ? 'You keep' : 'Courier pays you';
+
     // Courier fee (courier keeps)
-    if (!feeByHand) {
+    if (self) {
+        if (!feeByHand) feeInput.value = hf.num(settings.sales.selfDeliveryCost);
+        feeHint.textContent = feeByHand ? 'Your own cost for this delivery · no courier charge' : 'Your own cost (rider, fuel…) · default from Settings';
+    } else if (!feeByHand) {
         const pct = hf.num(settings.sales.codChargePercent);
         const codCharge = Math.round((cod * pct) / 100);
         feeInput.value = (zone ? zone.courierFee : 0) + codCharge;
@@ -283,7 +296,8 @@ function readSaleForm() {
         customerAddress: (data.customerAddress || '').trim(),
         deliveryZone: data.deliveryZone || '',
         deliveryCharge: hf.num(data.deliveryCharge),
-        courierFee: hf.num(data.courierFee),
+        courierFee: hf.num(data.courierFee),      // self-delivery: your own delivery expense
+        deliveryMethod: data.deliveryMethod === 'self' ? 'self' : 'courier',
         advancePaid: hf.num(data.advancePaid),
         trxId: (data.trxId || '').trim(),
         notes: (data.notes || '').trim(),
@@ -389,7 +403,7 @@ async function askReturn(sale) {
     check.append(box, document.createTextNode(` Add the delivery charge to expenses (${deliveryCategory()})`));
     const field = hf.create('div', { className: 'form-field' });
     const amount = hf.create('input', { attrs: { type: 'number', min: '0', step: '1', id: 'return-delivery-amount' } });
-    amount.value = sale.deliveryCharge || sale.courierFee || 0;
+    amount.value = (isSelf(sale) ? sale.courierFee : sale.deliveryCharge || sale.courierFee) || 0;
     field.append(hf.create('label', { text: 'Amount (Tk)', attrs: { for: 'return-delivery-amount' } }), amount);
     const note = hf.create('p', { className: 'hint', text: `Saved as: "Delivery charge – returned order (${invoiceOf(sale)})"` });
     hf.on(box, 'change', () => { amount.disabled = !box.checked; note.hidden = !box.checked; });
@@ -522,6 +536,7 @@ function resetSaleForm() {
     }
     fillZones();
     if (findZone(settings.sales.defaultZone)) zoneSelect.value = settings.sales.defaultZone;
+    methodSelect.value = 'courier';
     deliveryByHand = false;
     feeByHand = false;
     hf.hide(customerFound);
@@ -544,7 +559,8 @@ function startEdit(sale) {
     dateInput.value = hf.toInputDate(hf.toDate(sale.date));
     invoiceInput.value = sale.invoiceNo || sale.memoNo || '';
     orderInput.value = sale.orderNo || '';
-    fillStatusSelect(statusSelect);
+    methodSelect.value = isSelf(sale) ? 'self' : 'courier';
+    fillStatusSelect(statusSelect, { self: isSelf(sale) });
     statusSelect.value = statusOf(sale);
     phoneInput.value = sale.customerPhone || '';
     nameInput.value = sale.customerName || '';
@@ -698,12 +714,16 @@ function createSaleRow(sale) {
     // Status: change it right here
     const statusCell = hf.create('td', { className: 'status-cell' });
     const select = hf.create('select', { className: `status-select st-${key}`, attrs: { 'aria-label': 'Order status' } });
-    fillStatusSelect(select);
+    fillStatusSelect(select, { self: isSelf(sale) });
+    if (isSelf(sale) && key === 'paid') select.add(new Option(statusLabel('paid', sale), 'paid'));
     select.value = key;
     hf.on(select, 'change', () => changeStatus(sale, select.value, select));
     statusCell.append(select);
     const owes = courierOwesOf(sale);
     if (owes) statusCell.append(hf.create('span', { className: 'sub', text: `Courier owes ${hf.money(owes)}` }));
+    const toCollect = selfCashDueOf(sale);
+    if (toCollect) statusCell.append(hf.create('span', { className: 'sub', text: `Self-delivery · collect ${hf.money(toCollect)}` }));
+    else if (isSelf(sale)) statusCell.append(hf.create('span', { className: 'sub', text: 'Self-delivery' }));
 
     const totalCell = hf.create('td', { className: 'num' });
     totalCell.append(hf.create('span', { text: hf.money(totalDueOf(sale)) }));
@@ -755,6 +775,7 @@ function renderSummary(list) {
         strong('Delivery (after courier)', hf.money(sum(deliveryNetOf))),
         strong('Profit', hf.money(sum(profitOf))),
         strong('Courier owes you', hf.money(sum(courierOwesOf))),
+        ...(sum(selfCashDueOf) ? [strong('Cash to collect (self-delivery)', hf.money(sum(selfCashDueOf)))] : []),
         strong('To ship', String(active.filter(toShip).length)),
     );
 }
@@ -765,7 +786,8 @@ function renderTable() {
     const shown = sales.filter((s) => {
         if (filter === 'toShip' && !toShip(s)) return false;
         if (filter === 'owes' && !courierOwesOf(s)) return false;
-        if (filter && !['toShip', 'owes'].includes(filter) && statusOf(s) !== filter) return false;
+        if (filter === 'self' && !isSelf(s)) return false;
+        if (filter && !['toShip', 'owes', 'self'].includes(filter) && statusOf(s) !== filter) return false;
         if (!term) return true;
         const text = [
             s.customerName, s.customerPhone, s.invoiceNo, s.memoNo, s.orderNo, s.trxId, s.notes,
@@ -882,6 +904,13 @@ hf.on(zoneSelect, 'change', () => {
 hf.on(dateInput, 'change', updateNumberHints);
 hf.on(deliveryInput, 'input', () => { deliveryByHand = true; updateTotals(); });
 hf.on(feeInput, 'input', () => { feeByHand = true; updateTotals(); });
+hf.on(methodSelect, 'change', () => {
+    feeByHand = false;        // switching courier ↔ self-delivery resets the fee / expense
+    const before = statusSelect.value;
+    fillStatusSelect(statusSelect, { onlyActive: !editing, self: methodSelect.value === 'self' });
+    if (before === 'paid' && methodSelect.value === 'self') statusSelect.value = 'delivered';
+    updateTotals();
+});
 
 hf.on(phoneInput, 'input', hf.debounce(lookUpCustomer, 400));
 hf.on(phoneInput, 'blur', () => {
@@ -952,6 +981,7 @@ statusFilter.replaceChildren(
     new Option('All statuses', ''),
     new Option('To ship (pending + packaged)', 'toShip'),
     new Option('Courier owes me', 'owes'),
+    new Option('Self-delivery orders', 'self'),
     ...STATUSES.map((s) => new Option(s.label, s.key)),
 );
 range = createRangeFilter(hf.q('#sales-range'), loadSales);

@@ -8,6 +8,10 @@
 //   courier collects − courier fee    = courier pays you
 //   netSale − product cost + delivery charge − courier fee = your profit
 // Returned / cancelled orders count as 0 and their items go back into stock.
+//
+// Self-delivery (deliveryMethod: 'self'): you deliver and collect the cash yourselves.
+// There is no courier: the "courierFee" field holds your own delivery expense (rider, fuel...),
+// the courier never owes you anything, and the statuses read "Out for delivery" → "Delivered (cash received)".
 // ==============================
 
 import { hf } from "./utils.js";
@@ -24,9 +28,16 @@ export const STATUSES = [
 
 const INACTIVE = STATUSES.filter((s) => s.inactive).map((s) => s.key);
 
+// Status names for self-delivered orders
+const SELF_LABELS = { handed: 'Out for delivery', delivered: 'Delivered (cash received)', paid: 'Completed' };
+
+export const isSelf = (sale) => sale?.deliveryMethod === 'self';
+
 // Sales saved before statuses existed count as finished ("Courier paid")
 export const statusOf = (sale) => sale.status || 'paid';
-export const statusLabel = (key) => STATUSES.find((s) => s.key === key)?.label || key;
+// statusLabel('handed') → "Handed to courier";  statusLabel('handed', selfSale) → "Out for delivery"
+export const statusLabel = (key, sale) =>
+    (isSelf(sale) && SELF_LABELS[key]) || STATUSES.find((s) => s.key === key)?.label || key;
 export const isActiveStatus = (key) => !INACTIVE.includes(key || 'paid');
 export const isActive = (sale) => isActiveStatus(statusOf(sale));
 
@@ -45,9 +56,13 @@ export const payoutOf = (s) => codOf(s) - n(s.courierFee);
 // Profit including delivery (0 for returned / cancelled)
 export const profitOf = (s) => (isActive(s) ? n(s.netSale) - n(s.totalCost) + deliveryNetOf(s) : 0);
 
-// Money the courier still has to pay you (handed over or collected, not yet paid out)
+// Money the courier still has to pay you (handed over or collected, not yet paid out). Never for self-delivery.
 export const courierOwesOf = (s) =>
-    (isActive(s) && ['handed', 'delivered'].includes(statusOf(s)) ? payoutOf(s) : 0);
+    (!isSelf(s) && isActive(s) && ['handed', 'delivered'].includes(statusOf(s)) ? payoutOf(s) : 0);
+
+// Self-delivery: cash you still have to collect from the customer (not delivered yet)
+export const selfCashDueOf = (s) =>
+    (isSelf(s) && isActive(s) && ['pending', 'packed', 'handed'].includes(statusOf(s)) ? codOf(s) : 0);
 
 // Orders you still need to pack or hand over
 export const toShip = (s) => ['pending', 'packed'].includes(statusOf(s));
@@ -55,14 +70,18 @@ export const toShip = (s) => ['pending', 'packed'].includes(statusOf(s));
 // Coloured status label
 export function statusBadge(sale) {
     const key = statusOf(sale);
-    return hf.create('span', { className: `badge st-${key}`, text: statusLabel(key) });
+    return hf.create('span', { className: `badge st-${key}`, text: statusLabel(key, sale) });
 }
 
 // <select> of statuses. onlyActive = hide Returned/Cancelled (used when adding a new sale)
-export function fillStatusSelect(select, { onlyActive = false } = {}) {
+// self = use the self-delivery names. Keeps the current choice when refilled.
+export function fillStatusSelect(select, { onlyActive = false, self = false } = {}) {
+    const keep = select.value;
     select.replaceChildren();
     for (const s of STATUSES) {
         if (onlyActive && s.inactive) continue;
-        select.add(new Option(s.label, s.key));
+        if (self && s.key === 'paid') continue;      // nothing to be paid out when you deliver yourselves
+        select.add(new Option(statusLabel(s.key, self ? { deliveryMethod: 'self' } : null), s.key));
     }
+    if ([...select.options].some((o) => o.value === keep)) select.value = keep;
 }

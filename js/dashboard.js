@@ -7,7 +7,7 @@
 import { hf } from "./utils.js";
 import { startPage, createRangeFilter } from "./layout.js";
 import { getSales, getExpenses, getProducts, stockStatus } from "./firebase.js";
-import { isActive, statusOf, profitOf, deliveryNetOf, courierOwesOf, toShip } from "./orders.js";
+import { isActive, statusOf, profitOf, deliveryNetOf, courierOwesOf, toShip, isSelf, selfCashDueOf } from "./orders.js";
 
 
 // ---------- Elements ----------
@@ -51,13 +51,14 @@ function renderProfitAndLoss(sales, expenses) {
     const netProfit = grossProfit + deliveryNet - totalExpenses;
     const margin = totalSales ? grossProfit / totalSales : 0;
     const charged = sum(sales, (s) => s.deliveryCharge);
-    const fees = sum(sales, (s) => s.courierFee);
+    const fees = sum(sales, (s) => (isSelf(s) ? 0 : s.courierFee));
+    const selfCosts = sum(sales, (s) => (isSelf(s) ? s.courierFee : 0));
 
     plStats.replaceChildren(
         stat({ label: 'Total sales', value: hf.money(totalSales), note: `${sales.length} orders` }),
         stat({ label: 'Cost of goods sold', value: hf.money(costOfGoods) }),
         stat({ label: 'Gross profit', value: hf.money(grossProfit), note: `${hf.percent(margin)} margin`, tone: toneOf(grossProfit) }),
-        stat({ label: 'Delivery (after courier)', value: hf.money(deliveryNet), note: `${hf.money(charged)} charged − ${hf.money(fees)} fees`, tone: toneOf(deliveryNet) }),
+        stat({ label: 'Delivery (after courier)', value: hf.money(deliveryNet), note: `${hf.money(charged)} charged − ${hf.money(fees)} fees${selfCosts ? ` − ${hf.money(selfCosts)} self-delivery` : ''}`, tone: toneOf(deliveryNet) }),
         stat({ label: 'Expenses', value: hf.money(totalExpenses), note: `${expenses.length} entries` }),
         stat({ label: 'Net profit', value: hf.money(netProfit), tone: toneOf(netProfit), highlight: true }),
     );
@@ -67,13 +68,17 @@ function renderProfitAndLoss(sales, expenses) {
 function renderOrders(allSales) {
     const active = allSales.filter(isActive);
     const count = (key) => allSales.filter((s) => statusOf(s) === key).length;
+    const courierCount = (key) => allSales.filter((s) => !isSelf(s) && statusOf(s) === key).length;
     const owes = sum(active, courierOwesOf);
     const withCourier = active.filter((s) => courierOwesOf(s) > 0).length;
+    const selfActive = active.filter(isSelf);
+    const toCollect = sum(selfActive, selfCashDueOf);
     orderStats.replaceChildren(
         stat({ label: 'To ship', value: String(active.filter(toShip).length), note: `${count('pending')} pending · ${count('packed')} packaged` }),
-        stat({ label: 'With courier', value: String(count('handed')), note: 'handed over, not collected yet' }),
+        stat({ label: 'With courier', value: String(courierCount('handed')), note: 'handed over, not collected yet' }),
         stat({ label: 'Courier owes you', value: hf.money(owes), note: `${withCourier} orders not paid out yet`, tone: owes ? 'positive' : '' }),
-        stat({ label: 'Courier paid', value: String(count('paid')) }),
+        stat({ label: 'Courier paid', value: String(courierCount('paid')) }),
+        ...(selfActive.length ? [stat({ label: 'Self-delivery', value: String(selfActive.length), note: toCollect ? `${hf.money(toCollect)} cash still to collect` : 'all cash collected', tone: toCollect ? 'positive' : '' })] : []),
         stat({ label: 'Returned / cancelled', value: String(count('returned') + count('cancelled')), tone: count('returned') + count('cancelled') ? 'negative' : '' }),
     );
 }

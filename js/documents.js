@@ -67,7 +67,7 @@ export function orderData(sale, settings) {
         date: hf.date(sale.date),
         dateDots: dateDots(sale.date),
         printedOn: hf.date(new Date()),
-        status: statusLabel(statusOf(sale)),
+        status: statusLabel(statusOf(sale), sale),
         payment: sale.payment || '',
         paymentStatus: amounts.due <= 0 ? 'Paid' : (amounts.advancePaid > 0 ? 'Partly paid' : 'Cash on delivery'),
         trxId: sale.trxId || '',

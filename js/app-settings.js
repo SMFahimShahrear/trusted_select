@@ -56,6 +56,7 @@ export const DEFAULT_SETTINGS = {
         freeDeliveryOver: d.sales?.freeDeliveryOver ?? 0,
         codChargePercent: d.sales?.codChargePercent ?? 0,   // courier's cash-on-delivery charge, % of what they collect
         contactPhone: d.sales?.contactPhone ?? '',          // shown in the Bangla order message
+        selfDeliveryCost: d.sales?.selfDeliveryCost ?? 0,   // your own cost per self-delivered order
         summaryTemplate: '',                                // '' = use DEFAULT_SUMMARY
     },
     expenses: {

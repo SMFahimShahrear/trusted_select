@@ -105,13 +105,21 @@
                     </div>
 
                     <div class="form-field">
+                        <label for="delivery-method">Delivered by</label>
+                        <select id="delivery-method" name="deliveryMethod">
+                            <option value="courier">Courier</option>
+                            <option value="self">Self-delivery (no courier)</option>
+                        </select>
+                    </div>
+
+                    <div class="form-field">
                         <label for="delivery-charge">Delivery Charge (Tk)</label>
                         <input type="number" id="delivery-charge" name="deliveryCharge" min="0" step="1" value="0">
                         <span class="hint delivery-hint">Customer pays</span>
                     </div>
 
                     <div class="form-field">
-                        <label for="courier-fee">Courier Fee (Tk)</label>
+                        <label for="courier-fee" class="fee-label">Courier Fee (Tk)</label>
                         <input type="number" id="courier-fee" name="courierFee" min="0" step="1" value="0">
                         <span class="hint courier-hint">Courier keeps</span>
                     </div>
@@ -155,9 +163,9 @@
                             </dl>
                             <dl class="bill bill-courier">
                                 <div><dt>Advance paid</dt><dd id="bill-advance">Tk 0</dd></div>
-                                <div><dt>Courier collects (COD)</dt><dd id="bill-cod">Tk 0</dd></div>
-                                <div><dt>Courier fee</dt><dd id="bill-fee">Tk 0</dd></div>
-                                <div class="bill-total"><dt>Courier pays you</dt><dd id="bill-payout">Tk 0</dd></div>
+                                <div><dt id="bill-cod-label">Courier collects (COD)</dt><dd id="bill-cod">Tk 0</dd></div>
+                                <div><dt id="bill-fee-label">Courier fee</dt><dd id="bill-fee">Tk 0</dd></div>
+                                <div class="bill-total"><dt id="bill-payout-label">Courier pays you</dt><dd id="bill-payout">Tk 0</dd></div>
                                 <div class="bill-profit"><dt>Your profit on this order</dt><dd id="bill-profit">Tk 0</dd></div>
                             </dl>
                         </div>

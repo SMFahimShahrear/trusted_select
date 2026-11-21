@@ -30,7 +30,8 @@
         "defaultZone": "Inside Dhaka",
         "freeDeliveryOver": 0,
         "codChargePercent": 0,
-        "contactPhone": "01895679715"
+        "contactPhone": "01895679715",
+        "selfDeliveryCost": 0
     },
 
     "expenses": {
