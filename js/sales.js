@@ -46,6 +46,8 @@ const feeInput = hf.q('#courier-fee');
 const feeHint = hf.q('.courier-hint');
 const feeLabel = hf.q('.fee-label');
 const methodSelect = hf.q('#delivery-method');
+const codPercentInput = hf.q('#cod-percent');
+const codField = hf.q('.cod-field');
 const discountInput = hf.q('#discount');
 const paymentSelect = hf.q('#payment');
 const advanceInput = hf.q('#advance-paid');
@@ -214,6 +216,7 @@ function updateTotals() {
 
     // Self-delivery: no courier, the fee box holds your own delivery expense
     const self = methodSelect.value === 'self';
+    codField.hidden = self;   // no courier = no COD charge
     feeLabel.textContent = self ? 'Delivery Expense (Tk)' : 'Courier Fee (Tk)';
     bill.codLabel.textContent = self ? 'You collect (cash)' : 'Courier collects (COD)';
     bill.feeLabel.textContent = self ? 'Delivery expense' : 'Courier fee';
@@ -224,8 +227,8 @@ function updateTotals() {
         if (!feeByHand) feeInput.value = hf.num(settings.sales.selfDeliveryCost);
         feeHint.textContent = feeByHand ? 'Your own cost for this delivery · no courier charge' : 'Your own cost (rider, fuel…) · default from Settings';
     } else if (!feeByHand) {
-        const pct = hf.num(settings.sales.codChargePercent);
-        const codCharge = Math.round((cod * pct) / 100);
+        const pct = hf.num(codPercentInput.value);
+        const codCharge = Math.ceil((cod * pct) / 100);   // always rounded up
         feeInput.value = (zone ? zone.courierFee : 0) + codCharge;
         feeHint.textContent = pct ? `${zone?.name || ''} fee + ${pct}% COD (${hf.money(codCharge)})` : `${zone?.name || 'Courier'} fee`;
     } else {
@@ -298,6 +301,7 @@ function readSaleForm() {
         deliveryCharge: hf.num(data.deliveryCharge),
         courierFee: hf.num(data.courierFee),      // self-delivery: your own delivery expense
         deliveryMethod: data.deliveryMethod === 'self' ? 'self' : 'courier',
+        codChargePercent: data.deliveryMethod === 'self' ? 0 : hf.num(data.codChargePercent),
         advancePaid: hf.num(data.advancePaid),
         trxId: (data.trxId || '').trim(),
         notes: (data.notes || '').trim(),
@@ -537,6 +541,7 @@ function resetSaleForm() {
     fillZones();
     if (findZone(settings.sales.defaultZone)) zoneSelect.value = settings.sales.defaultZone;
     methodSelect.value = 'courier';
+    codPercentInput.value = hf.num(settings.sales.codChargePercent);
     deliveryByHand = false;
     feeByHand = false;
     hf.hide(customerFound);
@@ -560,6 +565,7 @@ function startEdit(sale) {
     invoiceInput.value = sale.invoiceNo || sale.memoNo || '';
     orderInput.value = sale.orderNo || '';
     methodSelect.value = isSelf(sale) ? 'self' : 'courier';
+    codPercentInput.value = sale.codChargePercent ?? hf.num(settings.sales.codChargePercent);
     fillStatusSelect(statusSelect, { self: isSelf(sale) });
     statusSelect.value = statusOf(sale);
     phoneInput.value = sale.customerPhone || '';
@@ -904,6 +910,7 @@ hf.on(zoneSelect, 'change', () => {
 hf.on(dateInput, 'change', updateNumberHints);
 hf.on(deliveryInput, 'input', () => { deliveryByHand = true; updateTotals(); });
 hf.on(feeInput, 'input', () => { feeByHand = true; updateTotals(); });
+hf.on(codPercentInput, 'input', () => { feeByHand = false; updateTotals(); });   // new % → work the courier fee out again
 hf.on(methodSelect, 'change', () => {
     feeByHand = false;        // switching courier ↔ self-delivery resets the fee / expense
     const before = statusSelect.value;
