@@ -275,7 +275,8 @@ function readSaleForm() {
             itemName: oldItem && product.deleted ? oldItem.itemName : (product.name || ''),
             qty: i.qty,
             unitPrice: i.unitPrice,
-            unitCost: oldItem ? hf.num(oldItem.unitCost) : hf.num(product.costPrice),
+            // (if it was saved with no cost, use today's cost price so profit is right)
+            unitCost: oldItem && hf.num(oldItem.unitCost) ? hf.num(oldItem.unitCost) : hf.num(product.costPrice),
         };
     });
 

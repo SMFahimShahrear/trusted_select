@@ -20,25 +20,76 @@
 
         <main class="main">
             <section class="card-head" style="margin-bottom: 0;">
-                <p class="muted" id="period-label">Profit &amp; loss for the period</p>
+                <div>
+                    <p class="muted" id="period-label">Profit &amp; loss for the period</p>
+                    <p class="hint" id="compare-label"></p>
+                </div>
                 <div id="dashboard-range"></div>
             </section>
 
-            <!-- Profit & loss -->
-            <section class="stats" id="pl-stats" aria-label="Profit and loss"></section>
+            <!-- Headline numbers -->
+            <section class="stats kpis" id="kpi-stats" aria-label="Headline numbers"></section>
 
-            <h2 class="section-title">Orders</h2>
-            <section class="stats" id="order-stats" aria-label="Orders"></section>
-
-            <h2 class="section-title">Inventory</h2>
-            <section class="stats" id="stock-stats" aria-label="Inventory"></section>
+            <!-- Accuracy warnings (only shown when something needs fixing) -->
+            <section class="card checks-card" id="checks" hidden></section>
 
             <div class="grid-2">
                 <section class="card">
                     <div class="card-head">
-                        <h2>Top selling products</h2>
+                        <h2>Profit statement</h2>
+                        <span class="hint">Returned / cancelled orders not counted</span>
+                    </div>
+                    <dl class="statement" id="statement"></dl>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Cash &amp; collections</h2>
+                        <span class="hint">After delivery costs</span>
+                    </div>
+                    <dl class="statement" id="cash"></dl>
+                    <div class="split-bar" id="cash-bar" role="img"></div>
+                </section>
+            </div>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2>Where the money goes</h2>
+                    <span class="hint" id="money-total"></span>
+                </div>
+                <div class="split-bar split-bar-lg" id="money-bar" role="img"></div>
+                <ul class="legend" id="money-legend"></ul>
+            </section>
+
+            <section class="card">
+                <div class="card-head">
+                    <h2 id="trend-title">Sales &amp; profit by day</h2>
+                    <ul class="legend legend-inline">
+                        <li><i class="key key-bar"></i>Sales</li>
+                        <li><i class="key key-line"></i>Profit from orders</li>
+                    </ul>
+                </div>
+                <div class="trend" id="trend"></div>
+            </section>
+
+            <h2 class="section-title">Orders</h2>
+            <section class="stats" id="order-stats" aria-label="Orders"></section>
+
+            <div class="grid-2">
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Top products</h2>
+                        <span class="hint">by profit</span>
                     </div>
                     <ul class="bar-list" id="top-products"></ul>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Delivery areas</h2>
+                        <span class="hint">charged − delivery cost</span>
+                    </div>
+                    <ul class="bar-list" id="delivery-areas"></ul>
                 </section>
 
                 <section class="card">
@@ -46,6 +97,14 @@
                         <h2>Expenses by category</h2>
                     </div>
                     <ul class="bar-list" id="expense-categories"></ul>
+                </section>
+
+                <section class="card">
+                    <div class="card-head">
+                        <h2>Top customers</h2>
+                        <span class="hint">this period</span>
+                    </div>
+                    <ul class="bar-list" id="top-customers"></ul>
                 </section>
             </div>
 
@@ -60,18 +119,23 @@
                                 <th>Month</th>
                                 <th class="num">Orders</th>
                                 <th class="num">Sales</th>
-                                <th class="num">Profit (incl. delivery)</th>
+                                <th class="num">Gross Profit</th>
+                                <th class="num">Delivery (net)</th>
                                 <th class="num">Expenses</th>
                                 <th class="num">Net Profit</th>
+                                <th class="num">Margin</th>
                             </tr>
                         </thead>
                         <tbody id="monthly-body">
-                            <tr><td class="empty" colspan="6">Loading...</td></tr>
+                            <tr><td class="empty" colspan="8">Loading...</td></tr>
                         </tbody>
                         <tfoot id="monthly-foot"></tfoot>
                     </table>
                 </div>
             </section>
+
+            <h2 class="section-title">Inventory</h2>
+            <section class="stats" id="stock-stats" aria-label="Inventory"></section>
 
             <section class="card">
                 <div class="card-head">
